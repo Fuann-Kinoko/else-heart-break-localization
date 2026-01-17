@@ -20,6 +20,7 @@ namespace TranslationPlugin
             Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} is loaded!");
 
             TranslationConfig.Init(Config);
+            MenuTranslations.Init();
 
             // Initialize BilingualMode from config
             BilingualMode = TranslationConfig.BilingualModeEnabled;
@@ -27,6 +28,7 @@ namespace TranslationPlugin
 
             Harmony.CreateAndPatchAll(typeof(TranslationPatches));
             Harmony.CreateAndPatchAll(typeof(UIPatches));
+            Harmony.CreateAndPatchAll(typeof(MenuPatches));
         }
 
         private void Update()

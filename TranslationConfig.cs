@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 namespace TranslationPlugin
@@ -201,61 +202,39 @@ namespace TranslationPlugin
         }
 
         /// <summary>
-        /// Creates a default localization.ini with Chinese as the default language.
+        /// Creates a default localization.ini by extracting it from the embedded resource.
         /// </summary>
         private static void CreateDefaultIni(string path)
         {
-            string defaultContent = @"; === Else Heartbreak Translation Plugin Configuration ===
-; This file configures custom language support for the game.
-; Place this file in the same directory as ElseHeartbreak.exe
-
-[General]
-; Enable bilingual mode by default (shows both English + Custom language)
-; Can also be toggled in-game with the hotkey below
-BilingualModeEnabled=true
-
-; Hotkey to toggle bilingual mode in-game (press to switch on/off)
-BilingualToggleKey=F11
-
-; If a translation is missing, show English instead of the raw key
-FallbackToEnglish=true
-
-; ============================================================
-; Language Definitions
-; Each [SectionName] defines a new language.
-; You can add multiple languages by creating new sections.
-; ============================================================
-
-[Chinese]
-; Internal code used for language selection (saved to PlayerPrefs)
-Code=chn
-
-; Name displayed on the UI button in the main menu
-DisplayName=中文
-
-; Folder name inside InitData/Translations/ containing .mtf files
-TranslationFolder=Chinese
-
-; The identifier in translation filenames (e.g., dialogue.chn.mtf)
-FileIdentifier=chn
-
-; ============================================================
-; Example: Add another language by uncommenting and modifying:
-; ============================================================
-; [Japanese]
-; Code=jpn
-; DisplayName=日本語
-; TranslationFolder=Japanese
-; FileIdentifier=jpn
-";
             try
             {
+                string resourceName = "TranslationPlugin.assets.localization.ini";
+                string defaultContent = LoadResourceText(resourceName);
+
                 File.WriteAllText(path, defaultContent, System.Text.Encoding.UTF8);
                 Plugin.Logger.LogInfo($"Created default localization.ini at: {path}");
             }
             catch (Exception ex)
             {
                 Plugin.Logger.LogError($"Failed to create default localization.ini: {ex.Message}");
+            }
+        }
+
+        public static string LoadResourceText(string resourceName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            // Debug available resources if needed
+            // foreach (string res in assembly.GetManifestResourceNames()) Plugin.Logger.LogInfo("Resource: " + res);
+
+            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (stream == null)
+                    throw new Exception($"Resource '{resourceName}' not found.");
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
             }
         }
 
