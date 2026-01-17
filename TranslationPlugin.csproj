@@ -34,6 +34,24 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="GameWorld2">
+      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\GameWorld2.dll</HintPath>
+    </Reference>
+    <Reference Include="GameTypes">
+      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\GameTypes.dll</HintPath>
+    </Reference>
+    <Reference Include="TingTing">
+      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\TingTing.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
   <Target Name="CopyPlugin" AfterTargets="Build">
     <Copy
       SourceFiles="$(TargetPath)"
