@@ -11,8 +11,8 @@ namespace TranslationPlugin
     {
         internal static new ManualLogSource Logger;
 
-        // Global toggle state
-        public static bool CustomLanguageActive = false;
+        // Bilingual Mode toggle - initialized from config, can be toggled with hotkey
+        public static bool BilingualMode = true;
 
         private void Awake()
         {
@@ -21,49 +21,21 @@ namespace TranslationPlugin
 
             TranslationConfig.Init(Config);
 
+            // Initialize BilingualMode from config
+            BilingualMode = TranslationConfig.BilingualModeEnabled;
+            Logger.LogInfo($"Bilingual Mode initialized: {BilingualMode}");
+
             Harmony.CreateAndPatchAll(typeof(TranslationPatches));
             Harmony.CreateAndPatchAll(typeof(UIPatches));
         }
 
         private void Update()
         {
-            if (Input.GetKeyDown(TranslationConfig.SwitchLanguageKey.Value))
+            // Toggle Bilingual Mode with hotkey (default F11)
+            if (Input.GetKeyDown(TranslationConfig.BilingualToggleKey))
             {
-                CustomLanguageActive = !CustomLanguageActive;
-                Logger.LogInfo($"Global Custom Language Toggle: {CustomLanguageActive}");
-
-                try
-                {
-                    // If World is loaded, apply immediate change
-                    if (WorldOwner.instance != null && WorldOwner.instance.worldIsLoaded)
-                    {
-                        var world = WorldOwner.instance.world;
-                        if (world != null)
-                        {
-                            if (CustomLanguageActive)
-                            {
-                                Logger.LogInfo($"Applying Custom Language {TranslationConfig.LanguageCode.Value} immediately.");
-                                world.settings.translationLanguage = TranslationConfig.LanguageCode.Value;
-                                world.RefreshTranslationLanguage();
-                            }
-                            else
-                            {
-                                // Fallback to English if toggled off
-                                Logger.LogInfo($"Reverting to English immediately.");
-                                world.settings.translationLanguage = "eng";
-                                world.RefreshTranslationLanguage();
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Logger.LogInfo("World not loaded yet. Change queued for next World load.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError($"Error in Hotkey Update: {ex}");
-                }
+                BilingualMode = !BilingualMode;
+                Logger.LogInfo($"Bilingual Mode Toggled: {BilingualMode}");
             }
         }
     }
