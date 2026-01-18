@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
-    <AssemblyName>TranslationPlugin</AssemblyName>
-    <Product>My first plugin</Product>
+    <AssemblyName>ElseHeartbreakLocalization</AssemblyName>
+    <Product>Else Heartbreak Localization</Product>
     <Version>1.0.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -12,9 +12,9 @@
       https://nuget.bepinex.dev/v3/index.json;
       https://nuget.samboy.dev/v3/index.json
     </RestoreAdditionalProjectSources>
-    <RootNamespace>TranslationPlugin</RootNamespace>
+    <RootNamespace>ElseHeartbreakLocalization</RootNamespace>
     <ManagedPath>..\ElseHeartbreak_Data\Managed</ManagedPath>
-    <BepInExPluginsPath>..\BepInEx\plugins</BepInExPluginsPath>
+    <BepInExPluginsPath>..\ElseHeartbreak_Data\BepInEx\plugins</BepInExPluginsPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -59,17 +59,64 @@
 
   <Target Name="CopyPlugin" AfterTargets="Build">
     <Copy
-      SourceFiles="$(TargetPath)"
-      DestinationFolder="$(BepInExPluginsPath)\"
-      Condition="Exists('$(BepInExPluginsPath)\')" />
+        SourceFiles="$(TargetPath)"
+        DestinationFolder="external\BepInEx\plugins\" />
+
+    <ItemGroup>
+      <ExternalRootFiles Include="external\*.dll;external\*.ini" />
+    </ItemGroup>
+    <Copy
+        SourceFiles="@(ExternalRootFiles)"
+        DestinationFolder="..\"
+        SkipUnchangedFiles="true" />
+
+    <ItemGroup>
+      <ExternalBepInExFiles Include="external\BepInEx\**\*" />
+    </ItemGroup>
+    <Copy
+        SourceFiles="@(ExternalBepInExFiles)"
+        DestinationFolder="..\ElseHeartbreak_Data\BepInEx\%(RecursiveDir)"
+        SkipUnchangedFiles="true" />
 
     <ItemGroup>
       <ResourceFiles Include="resources\**\*" />
     </ItemGroup>
     <Copy
       SourceFiles="@(ResourceFiles)"
-      DestinationFolder="$(ManagedPath)\..\InitData\%(RecursiveDir)"
+      DestinationFolder="..\ElseHeartbreak_Data\InitData\%(RecursiveDir)"
       SkipUnchangedFiles="true"
       Condition="Exists('resources')" />
+  </Target>
+
+  <Target Name="CreateReleaseZip" AfterTargets="CopyPlugin" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <PublishDir>publish</PublishDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(PublishDir)" />
+    <MakeDir Directories="$(PublishDir)" />
+
+    <!-- Root Files -->
+    <Copy SourceFiles="external\doorstop_config.ini;external\winhttp.dll" DestinationFolder="$(PublishDir)" />
+    <Copy SourceFiles="assets\localization.ini" DestinationFolder="$(PublishDir)" />
+
+    <!-- BepInEx (includes the built DLL copied in CopyPlugin) -->
+    <ItemGroup>
+      <BepInExReleaseFiles Include="external\BepInEx\**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(BepInExReleaseFiles)"
+      DestinationFolder="$(PublishDir)\ElseHeartbreak_Data\BepInEx\%(RecursiveDir)" />
+
+    <!-- Resources -->
+    <ItemGroup>
+      <ResourceReleaseFiles Include="resources\**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(ResourceReleaseFiles)"
+      DestinationFolder="$(PublishDir)\ElseHeartbreak_Data\InitData\%(RecursiveDir)" />
+
+    <!-- Zip -->
+    <Message Text="Creating Release.zip..." Importance="high" />
+    <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(PublishDir)\*' -DestinationPath 'Release.zip' -Force&quot;" />
   </Target>
 </Project>

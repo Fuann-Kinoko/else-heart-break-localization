@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using GameWorld2;
 
-namespace TranslationPlugin;
+namespace ElseHeartbreakLocalization;
 
 public class TranslationPatches
 {

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
-namespace TranslationPlugin;
+namespace ElseHeartbreakLocalization;
 
 public class LanguageConfig
 {

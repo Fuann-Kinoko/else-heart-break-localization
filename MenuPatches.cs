@@ -5,7 +5,7 @@ using System;
 using TingTing;
 using UnityEngine;
 
-namespace TranslationPlugin;
+namespace ElseHeartbreakLocalization;
 
 public class MenuPatches
 {

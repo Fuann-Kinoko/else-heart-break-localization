@@ -1,3 +1,4 @@
 reversed/managed
-bin/Debug/net35
-obj
+bin/
+obj/
+publish/

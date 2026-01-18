@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
-namespace TranslationPlugin;
+namespace ElseHeartbreakLocalization;
 
 public static class MenuTranslations
 {

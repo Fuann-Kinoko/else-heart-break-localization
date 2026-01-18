@@ -4,9 +4,9 @@ using HarmonyLib;
 using System;
 using UnityEngine;
 
-namespace TranslationPlugin
+namespace ElseHeartbreakLocalization
 {
-    [BepInPlugin("org.bepinex.plugins.EHTranslationPlugin", "Translation Plugin", "1.0.0.0")]
+    [BepInPlugin("org.bepinex.plugins.ElseHeartbreakLocalization", "Else Heartbreak Localization", "1.0.0.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static new ManualLogSource Logger;

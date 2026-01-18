@@ -3,7 +3,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TranslationPlugin;
+namespace ElseHeartbreakLocalization;
 
 public class UIPatches
 {
