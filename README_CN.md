@@ -2,25 +2,26 @@
 
 [English README](README.md)
 
-一个 BepInEx 插件，为 **Else Heartbreak** 提供自定义语言翻译支持，包括菜单/UI 文本、工具提示、动作描述、通知消息，以及可以为 CJK字符 调整对话气泡宽度。
+一个 BepInEx 插件，为 **Else Heart.Break()** 提供自定义语言翻译支持，包括菜单/UI 文本、tooltip、MenuItem、通知消息，可以为 CJK字符 调整对话气泡宽度。
 
 ## 功能
 
 - **可切换双语模式**: 通过快捷键切换是否同时显示英文和翻译文本（默认F11）
 - **菜单和 UI 翻译**: 对 tooltip, menuItem 以及 Notification 都可以进行翻译
 - **添加自定义语言按钮**: 主菜单和设置界面自动添加对应语言选择按钮
-- **对话气泡宽度**: 可配置为 CJK 字符如何调整气泡宽度
+- **对话气泡宽度**: 可配置 CJK 字符调整气泡宽度
 
 ## 安装方法
 
-### 方式一：使用 Release 包（推荐）
+### 方式一：下载 Release（推荐）
 1. 下载最新的 Release 压缩包
 2. 将压缩包内容**解压到游戏根目录**（`ElseHeartbreak/`），覆盖同名文件
 3. 启动游戏
 
 ### 方式二：手动安装
 1. 安装 [BepInEx 5.x](https://github.com/BepInEx/BepInEx)（如果未包含）
-2. 将编译好的 `ElseHeartbreakLocalization.dll` 复制到 `ElseHeartbreak_Data/BepInEx/plugins/`
+2. （可选）将BepInEx文件夹放在 `ElseHeartbreak_Data/` 下，修改 doorstop_config.ini， 改为 `target_assembly=ElseHeartbreak_Data\BepInEx\core\BepInEx.Preloader.dll`
+2. 将自行编译好的 `ElseHeartbreakLocalization.dll` 复制到 `ElseHeartbreak_Data/BepInEx/plugins/` （如果第二步没有执行，那么BepInEx文件夹在游戏根目录）
 3. 将 `assets/localization.ini` 复制到游戏根目录
 4. 将 `resources/` 下的文件夹复制到 `ElseHeartbreak_Data/InitData/`
 
@@ -82,7 +83,7 @@ ElseHeartbreak/
 
 ### 二、菜单/UI 翻译（MenuTranslations 文件夹）
 
-这部分负责翻译游戏界面元素：工具提示、动作按钮、通知消息等。
+这部分负责翻译游戏界面元素：tooltip、menuItem、通知消息等。
 
 **存放位置**: `ElseHeartbreak_Data/InitData/MenuTranslations/{Language}/`
 
@@ -168,12 +169,12 @@ CharacterWidthMultiplier=2.0
 "pick up telephone" => "拿起电话"
 ```
 
-**加载优先级** （优先使用后加载的语句）：
+**加载优先级** （优先使用较晚加载的语句）：
 
 | 优先级 | 格式 | 示例 |
 |--------|------|------|
-| 1 | `{name}.{idn}.mtf` | `verbs.chn.mtf` |
-| 2 | `{name}_override.{idn}.mtf` | `verbs_override.chn.mtf` |
+| 1（早加载） | `{name}.{idn}.mtf` | `verbs.chn.mtf` |
+| 2（晚加载） | `{name}_override.{idn}.mtf` | `verbs_override.chn.mtf` |
 
 
 ## 配置说明
@@ -216,41 +217,14 @@ cd ElseHeartbreakLocalization
 dotnet build
 ```
 
-## 发布指南
-
-如果你想发布一个新的版本：
-
-1. 在本地运行 Release 构建：
-   ```powershell
-   dotnet build -c Release
-   ```
-2. 构建完成后，项目根目录下会生成 `Release.zip`
-3. 在 GitHub 上创建一个新的 Release（对应的 Tag），并将 `Release.zip` 上传即可
-
 ## 许可协议与致谢
 
-本项目包含多个组件，遵循不同的开源协议：
-
-### 插件代码
-Else Heartbreak Localization 代码遵循开源协议。
-- 协议: **CC0-1.0 Universal** (Public Domain)
-- 详情请见 `LICENSE`
+本项目引用了多个项目：
 
 ### BepInEx
-- [BepInEx](https://github.com/BepInEx/BepInEx) 框架。
+- [BepInEx](https://github.com/BepInEx/BepInEx) 框架
 - 协议: **LGPL-2.1**
 
 ### 中文翻译文本
-本插件包含的中文翻译文本来源于 [else-heart-break-chinese](https://github.com/1PercentSync/else-heart-break-chinese) 项目。
+本插件示例用的中文翻译文本来源于 [else-heart-break-chinese](https://github.com/1PercentSync/else-heart-break-chinese) 项目
 - 协议: **CC0-1.0 Universal** (Public Domain)
-- 作者: 1PercentSync
-- 详情请见 `InitData/MenuTranslations/Chinese/LICENSE`
-
-## 参与贡献
-
-### 贡献翻译时的注意事项
-
-- 确保翻译准确且符合游戏语境
-- 保持翻译风格的一致性
-- 测试你的翻译是否正常显示
-- 对于复杂短语，考虑使用 `_override.mtf` 文件
