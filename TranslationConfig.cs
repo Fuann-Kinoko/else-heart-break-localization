@@ -19,13 +19,21 @@ namespace TranslationPlugin
         public string FileIdentifier { get; set; }    // e.g., "chn"
         public int CustomLanguageId { get; set; }     // e.g., 100
 
-        public LanguageConfig(string code, string displayName, string translationFolder, string fileIdentifier, int customLanguageId)
+        /// <summary>
+        /// Multiplier for character width in dialogue bubbles when NOT in bilingual mode.
+        /// Default 7f * this multiplier = actual width per character.
+        /// Chinese/Japanese typically need 2.0, European languages ~1.0
+        /// </summary>
+        public float CharacterWidthMultiplier { get; set; } = 2.0f;
+
+        public LanguageConfig(string code, string displayName, string translationFolder, string fileIdentifier, int customLanguageId, float charWidthMultiplier = 2.0f)
         {
             Code = code;
             DisplayName = displayName;
             TranslationFolder = translationFolder;
             FileIdentifier = fileIdentifier;
             CustomLanguageId = customLanguageId;
+            CharacterWidthMultiplier = charWidthMultiplier;
         }
     }
 
@@ -191,9 +199,14 @@ namespace TranslationPlugin
             string translationFolder = GetValueOrDefault(data, "TranslationFolder", sectionName);
             string fileIdentifier = GetValueOrDefault(data, "FileIdentifier", code);
 
+            // Parse character width multiplier (default 2.0 for CJK languages)
+            float charWidthMultiplier = 2.0f;
+            string charWidthStr = GetValueOrDefault(data, "CharacterWidthMultiplier", "2.0");
+            float.TryParse(charWidthStr, out charWidthMultiplier);
+
             int customId = BaseCustomLanguageId + index;
 
-            Languages.Add(new LanguageConfig(code, displayName, translationFolder, fileIdentifier, customId));
+            Languages.Add(new LanguageConfig(code, displayName, translationFolder, fileIdentifier, customId, charWidthMultiplier));
         }
 
         private static string GetValueOrDefault(Dictionary<string, string> data, string key, string defaultValue)
