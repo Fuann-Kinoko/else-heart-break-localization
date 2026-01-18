@@ -4,6 +4,10 @@
 
 一个 BepInEx 插件，为 **Else Heart.Break()** 提供自定义语言翻译支持，包括菜单/UI 文本、tooltip、MenuItem、通知消息，可以为 CJK字符 调整对话气泡宽度。
 
+![](assets/screenshot_1.png)
+![](assets/screenshot_2.png)
+![](assets/screenshot_3.png)
+
 ## 功能
 
 - **可切换双语模式**: 通过快捷键切换是否同时显示英文和翻译文本（默认F11）
@@ -24,6 +28,12 @@
 2. 将自行编译好的 `ElseHeartbreakLocalization.dll` 复制到 `ElseHeartbreak_Data/BepInEx/plugins/` （如果第二步没有执行，那么BepInEx文件夹在游戏根目录）
 3. 将 `assets/localization.ini` 复制到游戏根目录
 4. 将 `resources/` 下的文件夹复制到 `ElseHeartbreak_Data/InitData/`
+
+### 配置
+
+不喜欢每次打开游戏后弹出的终端界面？
+
+查找BepInEx文件夹，在`BepInEx\config\BepInEx.cfg`中，将48行的 `Enabled = true` 改为 `Enabled = false` 即可
 
 ## 目录结构
 

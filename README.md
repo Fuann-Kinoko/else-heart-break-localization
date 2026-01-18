@@ -4,6 +4,10 @@
 
 A BepInEx plugin that provides custom language translation support for **Else Heart.Break()**, including menu/UI text, tooltips, MenuItem, notification messages, and adjustable dialogue bubble width for CJK characters.
 
+![](assets/screenshot_1.png)
+![](assets/screenshot_2.png)
+![](assets/screenshot_3.png)
+
 ## Features
 
 - **Toggleable Bilingual Mode**: Toggle between showing English and translated text via hotkey (Default F11)
@@ -24,6 +28,12 @@ A BepInEx plugin that provides custom language translation support for **Else He
 3. Copy the compiled `ElseHeartbreakLocalization.dll` to `ElseHeartbreak_Data/BepInEx/plugins/` (If step 2 was not executed, the BepInEx folder is in the game root directory)
 4. Copy `assets/localization.ini` to the game root directory
 5. Copy the folders under `resources/` to `ElseHeartbreak_Data/InitData/`
+
+### Configuration
+
+Don't like the terminal window popping up every time you launch the game?
+
+Find the BepInEx folder, and in `BepInEx\config\BepInEx.cfg`, change line 48 `Enabled = true` to `Enabled = false`.
 
 ## Directory Structure
 
