@@ -13,8 +13,7 @@
       https://nuget.samboy.dev/v3/index.json
     </RestoreAdditionalProjectSources>
     <RootNamespace>ElseHeartbreakLocalization</RootNamespace>
-    <ManagedPath>..\ElseHeartbreak_Data\Managed</ManagedPath>
-    <BepInExPluginsPath>..\ElseHeartbreak_Data\BepInEx\plugins</BepInExPluginsPath>
+    <GamePath>..</GamePath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,19 +40,19 @@
 
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(ManagedPath)\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GamePath)\ElseHeartbreak_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="GameWorld2">
-      <HintPath>$(ManagedPath)\GameWorld2.dll</HintPath>
+      <HintPath>$(GamePath)\ElseHeartbreak_Data\Managed\GameWorld2.dll</HintPath>
     </Reference>
     <Reference Include="GameTypes">
-      <HintPath>$(ManagedPath)\GameTypes.dll</HintPath>
+      <HintPath>$(GamePath)\ElseHeartbreak_Data\Managed\GameTypes.dll</HintPath>
     </Reference>
     <Reference Include="TingTing">
-      <HintPath>$(ManagedPath)\TingTing.dll</HintPath>
+      <HintPath>$(GamePath)\ElseHeartbreak_Data\Managed\TingTing.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(GamePath)\ElseHeartbreak_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
 
@@ -67,7 +66,7 @@
     </ItemGroup>
     <Copy
         SourceFiles="@(ExternalRootFiles)"
-        DestinationFolder="..\"
+        DestinationFolder="$(GamePath)"
         SkipUnchangedFiles="true" />
 
     <ItemGroup>
@@ -75,15 +74,23 @@
     </ItemGroup>
     <Copy
         SourceFiles="@(ExternalBepInExFiles)"
-        DestinationFolder="..\ElseHeartbreak_Data\BepInEx\%(RecursiveDir)"
+        DestinationFolder="$(GamePath)\ElseHeartbreak_Data\BepInEx\%(RecursiveDir)"
         SkipUnchangedFiles="true" />
+
+    <ItemGroup>
+      <AssetsIniFiles Include="assets\*.ini" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(AssetsIniFiles)"
+      DestinationFolder="$(GamePath)"
+      SkipUnchangedFiles="true" />
 
     <ItemGroup>
       <ResourceFiles Include="resources\**\*" />
     </ItemGroup>
     <Copy
       SourceFiles="@(ResourceFiles)"
-      DestinationFolder="..\ElseHeartbreak_Data\InitData\%(RecursiveDir)"
+      DestinationFolder="$(GamePath)\ElseHeartbreak_Data\InitData\%(RecursiveDir)"
       SkipUnchangedFiles="true"
       Condition="Exists('resources')" />
   </Target>
