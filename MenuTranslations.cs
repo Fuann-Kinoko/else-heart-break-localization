@@ -290,7 +290,25 @@ namespace TranslationPlugin
                 }
             }
 
-            // Fallback: try direct lookup in notifications (sometimes used for full sentences)
+            // Fallback 1: try direct lookup in verbs (for complete verb phrases like "check balance")
+            var verbTranslation = TranslateVerb(composed);
+            if (verbTranslation != null)
+            {
+                string result = FormatBilingual(composed, verbTranslation);
+                _composedCache[composed] = result;
+                return result;
+            }
+
+            // Fallback 2: try direct lookup in tooltips (for noun-only items)
+            var tooltipTranslation = TranslateTooltip(composed);
+            if (tooltipTranslation != null)
+            {
+                string result = FormatBilingual(composed, tooltipTranslation);
+                _composedCache[composed] = result;
+                return result;
+            }
+
+            // Fallback 3: try direct lookup in notifications (sometimes used for full sentences)
             var directTranslation = TranslateNotification(composed);
             if (directTranslation != null)
             {
