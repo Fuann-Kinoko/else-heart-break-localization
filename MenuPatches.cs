@@ -45,6 +45,39 @@ namespace TranslationPlugin
         }
 
         /// <summary>
+        /// Patch WorldSettings.Hint to translate tutorial hints.
+        /// Hints come from .dia files (e.g., HelpSequence1.dia, HelpSequence2.dia)
+        /// and are displayed via _inGameHelpPanel.ShowNotification()
+        /// </summary>
+        [HarmonyPatch(typeof(WorldSettings), "Hint")]
+        [HarmonyPrefix]
+        public static void Hint_Prefix(ref string pMessage)
+        {
+            Logger.LogInfo($"[MenuPatches] Hint_Prefix called with: '{pMessage}'");
+
+            if (!IsCustomLanguageActive())
+            {
+                Logger.LogInfo("[MenuPatches] Custom language NOT active, skipping");
+                return;
+            }
+
+            try
+            {
+                string translation = MenuTranslations.TranslateNotification(pMessage);
+                Logger.LogInfo($"[MenuPatches] Hint translation lookup: '{pMessage}' -> '{translation}'");
+                if (translation != null)
+                {
+                    pMessage = MenuTranslations.FormatBilingual(pMessage, translation);
+                    Logger.LogInfo($"[MenuPatches] Hint result: '{pMessage}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Error in Hint_Prefix: {ex}");
+            }
+        }
+
+        /// <summary>
         /// Patch MimanTing.Say to translate dialogue bubbles.
         /// </summary>
         [HarmonyPatch(typeof(MimanTing), "Say")]
