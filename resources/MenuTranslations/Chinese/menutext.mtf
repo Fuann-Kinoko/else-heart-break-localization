@@ -1,0 +1,41 @@
+"open bag" => "打开背包"
+"close bag" => "关闭背包"
+"open" => "打开"
+"dance" => "跳舞"
+"give" => "给予"
+"put down" => "放下"
+"put into bag" => "放进包里"
+"hack" => "黑入"
+"read" => "读取"
+"is busy" => "正忙"
+
+; Inventory/Storage actions
+"Extract from" => "提取自"
+"put" => "放入"
+"into locker" => "储物柜"
+"into pipe" => "管道"
+"into trash can" => "垃圾桶"
+
+; Door actions
+"lock door" => "锁门"
+"unlock door" => "开锁"
+
+; Computer interaction
+"Restart [ctrl + r]" => "重启 [ctrl + r]"
+"Hack [ctrl + h]" => "黑入 [ctrl + h]"
+"Restart" => "重启"
+"Hack" => "黑入"
+
+; ActionMenu defaults
+"Beer" => "啤酒"
+"Use" => "使用"
+"Drop" => "放下"
+
+; Hand item actions
+"use" => "使用"
+
+; Credit card / money display - these appear as section titles
+"credit card" => "信用卡"
+
+; Empty state
+"empty" => "空"
