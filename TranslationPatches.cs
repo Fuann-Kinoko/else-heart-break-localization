@@ -122,7 +122,11 @@ namespace TranslationPlugin
                 Logger.LogInfo($"RefreshTranslationLanguage: Setting language to custom: {langConfig.DisplayName} ({langConfig.Code})");
 
                 // Set this as the active language
-                TranslationConfig.SetActiveLanguage(currentLangCode);
+                if (TranslationConfig.SetActiveLanguage(currentLangCode))
+                {
+                    // Reload menu translations for the new language
+                    MenuTranslations.Reload();
+                }
 
                 try
                 {

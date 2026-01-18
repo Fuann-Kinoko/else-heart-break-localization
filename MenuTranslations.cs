@@ -9,7 +9,7 @@ namespace TranslationPlugin
 {
     /// <summary>
     /// Handles loading and lookup of menu/UI string translations.
-    /// Uses a simple INI-like format for easy editing.
+    /// Now supports multiple languages and .mtf file format.
     /// </summary>
     public static class MenuTranslations
     {
@@ -25,98 +25,124 @@ namespace TranslationPlugin
         // Cache for composed tooltips to avoid repeated string processing
         private static Dictionary<string, string> _composedCache = new Dictionary<string, string>();
 
-        private static bool _initialized = false;
+        // Regex from game's Translator.cs
+        private static Regex _mtfRegex = new Regex("\"(.+)\" => \"(.+)\"");
 
         /// <summary>
-        /// Initialize the menu translations from file.
+        /// Initialize the menu translations based on active language.
         /// </summary>
         public static void Init()
         {
-            if (_initialized) return;
-
-            string gameRoot = Path.GetDirectoryName(Application.dataPath);
-            string translationsPath = Path.Combine(gameRoot, "menu_translations.ini");
-
-            Logger.LogInfo($"Looking for menu_translations.ini at: {translationsPath}");
-
-            if (File.Exists(translationsPath))
-            {
-                LoadFromIni(translationsPath);
-            }
-            else
-            {
-                Logger.LogWarning($"menu_translations.ini not found. Creating default file.");
-                CreateDefaultFile(translationsPath);
-                LoadFromIni(translationsPath);
-            }
-
-            _initialized = true;
-            Logger.LogInfo($"Menu translations loaded: {_tooltips.Count} tooltips, {_verbs.Count} verbs, {_notifications.Count} notifications, {_dialogues.Count} dialogues, {_menuText.Count} menuText");
+            // Always reload if language changed or first init
+            LoadTranslations(TranslationConfig.ActiveLanguage);
         }
 
-        private static void LoadFromIni(string path)
+        public static void Reload()
+        {
+            LoadTranslations(TranslationConfig.ActiveLanguage);
+        }
+
+        private static void LoadTranslations(LanguageConfig language)
         {
             _tooltips.Clear();
             _verbs.Clear();
             _notifications.Clear();
             _dialogues.Clear();
-            _dialogues.Clear();
             _menuText.Clear();
             _composedCache.Clear();
 
-            string currentSection = null;
+            if (language == null) return;
+
+            // Path: ElseHeartbreak_Data/InitData/Translations/{Language}/Menu/
+            string initData = Path.Combine(Application.dataPath, "InitData");
+            string translationsDir = Path.Combine(initData, "Translations");
+            string langFolder = Path.Combine(translationsDir, language.TranslationFolder);
+            string menuPath = Path.Combine(langFolder, "Menu");
+
+            Logger.LogInfo($"Loading menu translations from: {menuPath}");
+
+            if (!Directory.Exists(menuPath))
+            {
+                Logger.LogWarning($"Menu translation directory not found: {menuPath}");
+                return;
+            }
+
+            // Load specific files
+            LoadMtfFile(Path.Combine(menuPath, "tooltips.mtf"), _tooltips);
+            LoadMtfFile(Path.Combine(menuPath, "verbs.mtf"), _verbs);
+            LoadMtfFile(Path.Combine(menuPath, "notifications.mtf"), _notifications); // Contains general notifications
+            LoadMtfFile(Path.Combine(menuPath, "dialogues.mtf"), _dialogues);
+            LoadMtfFilesWithOverride(Path.Combine(menuPath, "menutext.mtf"), _menuText);
+
+            // Load extra files (mapped to appropriate dictionaries)
+            LoadMtfFile(Path.Combine(menuPath, "liquidtypes.mtf"), _tooltips); // Liquids are noun tooltips
+            LoadMtfFile(Path.Combine(menuPath, "drugtypes.mtf"), _tooltips);   // Drugs are noun tooltips
+            LoadMtfFile(Path.Combine(menuPath, "swedishdialogues.mtf"), _dialogues); // Dialogues
+            LoadMtfFile(Path.Combine(menuPath, "errors.mtf"), _notifications); // Errors are notifications
+            LoadMtfFile(Path.Combine(menuPath, "actiondescriptions.mtf"), _menuText); // Action descriptions act like menu text patterns
+
+            Logger.LogInfo($"Menu translations loaded for {language.Code}: {_tooltips.Count} tooltips, {_verbs.Count} verbs, {_notifications.Count} notifications, {_dialogues.Count} dialogues, {_menuText.Count} menuText");
+        }
+
+        private static void LoadMtfFile(string path, Dictionary<string, string> targetDict)
+        {
+            if (!File.Exists(path)) return;
 
             try
             {
                 string[] lines = File.ReadAllLines(path);
+                int count = 0;
 
-                foreach (string rawLine in lines)
+                foreach (string line in lines)
                 {
-                    string line = rawLine.Trim();
-
-                    // Skip empty lines and comments
-                    if (string.IsNullOrEmpty(line) || line.StartsWith(";") || line.StartsWith("#"))
-                        continue;
-
-                    // Section header
-                    if (line.StartsWith("[") && line.EndsWith("]"))
+                    Match match = _mtfRegex.Match(line);
+                    if (match.Success)
                     {
-                        currentSection = line.Substring(1, line.Length - 2).ToLowerInvariant();
-                        continue;
-                    }
-
-                    // Key=Value pair
-                    int eqIndex = line.IndexOf('=');
-                    if (eqIndex > 0)
-                    {
-                        string key = line.Substring(0, eqIndex).Trim();
-                        string value = line.Substring(eqIndex + 1).Trim();
-
-                        switch (currentSection)
-                        {
-                            case "tooltips":
-                                _tooltips[key] = value;
-                                break;
-                            case "verbs":
-                                _verbs[key] = value;
-                                break;
-                            case "notifications":
-                                _notifications[key] = value;
-                                break;
-                            case "dialogues":
-                                _dialogues[key] = value;
-                                break;
-                            case "menutext":
-                                _menuText[key] = value;
-                                break;
-                        }
+                        string key = match.Groups[1].Value;
+                        string value = match.Groups[2].Value;
+                        targetDict[key] = value;
+                        count++;
                     }
                 }
+                // Logger.LogDebug($"Loaded {count} entries from {Path.GetFileName(path)}");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Error loading menu_translations.ini: {ex.Message}");
+                Logger.LogError($"Error loading {path}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Load MTF file with optional override support.
+        /// If xxx_override.mtf exists, it will be loaded first (base file overwrites override for same keys,
+        /// but override keys not in base remain as full-sentence overrides).
+        /// </summary>
+        private static void LoadMtfWithOverride(string basePath, Dictionary<string, string> targetDict)
+        {
+            string dir = Path.GetDirectoryName(basePath);
+            string baseName = Path.GetFileNameWithoutExtension(basePath);
+            string overridePath = Path.Combine(dir, baseName + "_override.mtf");
+
+            // Load override first - these are full-sentence overrides that take precedence
+            LoadMtfFile(overridePath, targetDict);
+            // Then load base file - individual translations that DON'T overwrite override entries
+            // Actually, we want override to take precedence, so load base first, then override
+            // Correction: Load base first, then override (override wins for duplicate keys)
+        }
+
+        /// <summary>
+        /// Load MTF file with override support - override file takes precedence.
+        /// </summary>
+        private static void LoadMtfFilesWithOverride(string basePath, Dictionary<string, string> targetDict)
+        {
+            string dir = Path.GetDirectoryName(basePath);
+            string baseName = Path.GetFileNameWithoutExtension(basePath);
+            string overridePath = Path.Combine(dir, baseName + "_override.mtf");
+
+            // Load base first
+            LoadMtfFile(basePath, targetDict);
+            // Then load override (override wins for duplicate keys)
+            LoadMtfFile(overridePath, targetDict);
         }
 
         /// <summary>
@@ -127,7 +153,6 @@ namespace TranslationPlugin
         {
             if (string.IsNullOrEmpty(original)) return null;
             bool found = _tooltips.TryGetValue(original, out var translation);
-            Logger.LogDebug($"[MenuTranslations] TranslateTooltip('{original}') -> found={found}, result='{translation}'");
             return found ? translation : null;
         }
 
@@ -139,7 +164,6 @@ namespace TranslationPlugin
         {
             if (string.IsNullOrEmpty(original)) return null;
             bool found = _verbs.TryGetValue(original, out var translation);
-            Logger.LogDebug($"[MenuTranslations] TranslateVerb('{original}') -> found={found}, result='{translation}'");
             return found ? translation : null;
         }
 
@@ -171,12 +195,11 @@ namespace TranslationPlugin
         {
             if (string.IsNullOrEmpty(original)) return null;
             bool found = _menuText.TryGetValue(original, out var translation);
-            Logger.LogDebug($"[MenuTranslations] TranslateMenuText('{original}') -> found={found}, result='{translation}'");
             return found ? translation : null;
         }
 
         /// <summary>
-        /// Format bilingual output: "original (翻译)"
+        /// Format bilingual output: "original [翻译]"
         /// </summary>
         public static string FormatBilingual(string original, string translated)
         {
@@ -186,7 +209,7 @@ namespace TranslationPlugin
             if (!Plugin.BilingualMode)
                 return translated;
 
-            return $"{original} ({translated})";
+            return $"{original} [{translated}]";
         }
 
         /// <summary>
@@ -201,7 +224,6 @@ namespace TranslationPlugin
                 return cachedResult;
 
             // 1. Check for specific overrides in [MenuText] first (e.g. "talk to person" -> "与人交谈")
-            // This allows disabling the generic "Verb + Noun" logic for specific cases.
             var overrideTranslation = TranslateMenuText(composed);
             if (overrideTranslation != null)
             {
@@ -211,25 +233,64 @@ namespace TranslationPlugin
             }
 
             // 2. Try to find matching verb + tooltip pattern
-            foreach (var verbKvp in _verbs)
+            // Sort verbs by length descending to ensure "turn on" is matched before "turn"
+            var sortedVerbs = new List<string>(_verbs.Keys);
+            sortedVerbs.Sort((a, b) => b.Length.CompareTo(a.Length));
+
+            foreach (var verb in sortedVerbs)
             {
-                string verb = verbKvp.Key;
                 if (composed.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
                 {
+                    string translation = _verbs[verb];
                     string remainder = composed.Substring(verb.Length + 1);
-                    string tooltipTranslation = TranslateTooltip(remainder);
 
-                    if (tooltipTranslation != null)
+                    // Handle suffix in nouns, e.g., "booze (100%)" or "booze (empty)"
+                    string suffix = "";
+                    string suffixTranslated = "";
+                    // Match percentage like (100%) or (50.5%) OR text like (empty)
+                    var suffixMatch = Regex.Match(remainder, @"\s*\((\d+(?:\.\d+)?%|[a-zA-Z]+)\)$");
+                    string nounBase = remainder;
+                    if (suffixMatch.Success)
                     {
-                        string translatedFull = verbKvp.Value + tooltipTranslation;
+                        string suffixContent = suffixMatch.Groups[1].Value;
+                        suffix = " (" + suffixContent + ")";
+                        // Try to translate the suffix content (e.g., "empty" -> "空")
+                        var suffixTrans = TranslateTooltip(suffixContent);
+                        suffixTranslated = " (" + (suffixTrans ?? suffixContent) + ")";
+                        nounBase = remainder.Substring(0, suffixMatch.Index).Trim();
+                    }
+
+                    string nounTranslation = TranslateTooltip(nounBase);
+
+                    if (nounTranslation != null)
+                    {
+                        // Both verb and noun translated, re-append percentage suffix if any
+                        string translatedFull = translation + nounTranslation + suffixTranslated;
                         string result = FormatBilingual(composed, translatedFull);
+                        _composedCache[composed] = result;
+                        return result;
+                    }
+                    else if (string.IsNullOrEmpty(nounBase) || nounBase.Trim().Length == 0)
+                    {
+                        // Verb-only translation (e.g., "sit down" with no noun)
+                        string result = FormatBilingual(composed.Trim(), translation);
+                        _composedCache[composed] = result;
+                        return result;
+                    }
+                    else
+                    {
+                        // Verb translated, Noun NOT translated
+                        Logger.LogWarning($"[MenuTranslations] Missing translation for noun: '{nounBase}' in composed: '{composed}'");
+
+                        string mixedTranslation = translation + nounBase + suffixTranslated;
+                        string result = FormatBilingual(composed, mixedTranslation);
                         _composedCache[composed] = result;
                         return result;
                     }
                 }
             }
 
-            // Fallback: try direct lookup
+            // Fallback: try direct lookup in notifications (sometimes used for full sentences)
             var directTranslation = TranslateNotification(composed);
             if (directTranslation != null)
             {
@@ -240,22 +301,6 @@ namespace TranslationPlugin
 
             _composedCache[composed] = composed;
             return composed;
-        }
-
-        private static void CreateDefaultFile(string path)
-        {
-            try
-            {
-                string resourceName = "TranslationPlugin.assets.menu_translations.ini";
-                string defaultContent = TranslationConfig.LoadResourceText(resourceName);
-
-                File.WriteAllText(path, defaultContent, System.Text.Encoding.UTF8);
-                Logger.LogInfo($"Created default menu_translations.ini at: {path}");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Failed to create menu_translations.ini: {ex.Message}");
-            }
         }
     }
 }
