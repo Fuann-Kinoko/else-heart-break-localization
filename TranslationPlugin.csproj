@@ -62,5 +62,14 @@
       SourceFiles="$(TargetPath)"
       DestinationFolder="$(BepInExPluginsPath)\"
       Condition="Exists('$(BepInExPluginsPath)\')" />
+
+    <ItemGroup>
+      <ResourceFiles Include="resources\**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(ResourceFiles)"
+      DestinationFolder="$(ManagedPath)\..\InitData\%(RecursiveDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('resources')" />
   </Target>
 </Project>
