@@ -252,9 +252,8 @@ namespace TranslationPlugin
         [HarmonyPostfix]
         public static void CreateBubble_Postfix(Bubble __result, string pText)
         {
-            // Only apply if custom language is active AND NOT in bilingual mode
-            // In bilingual mode, the English text is included, so width calculation is fine
-            if (!IsCustomLanguageActive() || Plugin.BilingualMode)
+            // Only apply if custom language is active
+            if (!IsCustomLanguageActive())
                 return;
 
             var lang = TranslationConfig.ActiveLanguage;
@@ -263,14 +262,29 @@ namespace TranslationPlugin
 
             try
             {
-                // The original calculation was: sizeDelta += new Vector2(pText.Length * 7f, 0)
-                // We need to add more width: (multiplier - 1.0) * original width
-                float additionalWidth = (float)pText.Length * 7f * (lang.CharacterWidthMultiplier - 1.0f);
+                // Original calculation in game: pText.Length * 7f
+                // We want to add extra width ONLY for wide characters (e.g. CJK)
+                // Standard ASCII chars (0-127) are fine with 7f.
+                // We'll treat anything > 255 as a "wide" character needing the multiplier.
 
-                var rectTransform = __result.GetComponent<UnityEngine.RectTransform>();
-                if (rectTransform != null)
+                float additionalWidth = 0f;
+                float extraPerChar = 7f * (lang.CharacterWidthMultiplier - 1.0f);
+
+                foreach (char c in pText)
                 {
-                    rectTransform.sizeDelta += new UnityEngine.Vector2(additionalWidth, 0);
+                    if (c > 255)
+                    {
+                        additionalWidth += extraPerChar;
+                    }
+                }
+
+                if (additionalWidth > 0)
+                {
+                    var rectTransform = __result.GetComponent<UnityEngine.RectTransform>();
+                    if (rectTransform != null)
+                    {
+                        rectTransform.sizeDelta += new UnityEngine.Vector2(additionalWidth, 0);
+                    }
                 }
             }
             catch (Exception ex)
