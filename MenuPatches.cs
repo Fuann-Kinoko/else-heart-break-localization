@@ -3,278 +3,122 @@ using GameWorld2;
 using HarmonyLib;
 using System;
 using TingTing;
+using UnityEngine;
 
-namespace TranslationPlugin
+namespace TranslationPlugin;
+
+public class MenuPatches
 {
-    public class MenuPatches
+    private static ManualLogSource Logger => Plugin.Logger;
+    private static bool IsActive => TranslationConfig.ActiveLanguage != null;
+
+    [HarmonyPatch(typeof(WorldSettings), "Notify"), HarmonyPrefix]
+    public static void Notify(ref string pMessage) =>
+        ApplyTranslation(ref pMessage, MenuTranslations.TranslateNotification, "Notify");
+
+    [HarmonyPatch(typeof(WorldSettings), "Hint"), HarmonyPrefix]
+    public static void Hint(ref string pMessage) =>
+        ApplyTranslation(ref pMessage, MenuTranslations.TranslateNotification, "Hint");
+
+    [HarmonyPatch(typeof(MimanTing), "Say"), HarmonyPrefix]
+    public static void Say(ref string pLine) =>
+        ApplyTranslation(ref pLine, MenuTranslations.TranslateDialogue, "Dialogue");
+
+    private static void ApplyTranslation(ref string text, Func<string, string> translator, string ctx)
     {
-        private static ManualLogSource Logger => Plugin.Logger;
-
-        /// <summary>
-        /// Patch WorldSettings.Notify to translate notification messages.
-        /// </summary>
-        [HarmonyPatch(typeof(WorldSettings), "Notify")]
-        [HarmonyPrefix]
-        public static void Notify_Prefix(ref string pMessage)
+        if (!IsActive || string.IsNullOrEmpty(text)) return;
+        try
         {
-            Logger.LogInfo($"[MenuPatches] Notify_Prefix called with: '{pMessage}'");
-
-            if (!IsCustomLanguageActive())
+            var t = translator(text);
+            if (t != null)
             {
-                Logger.LogWarning("[MenuPatches] Custom language NOT active, skipping");
-                return;
-            }
-
-            try
-            {
-                string translation = MenuTranslations.TranslateNotification(pMessage);
-                Logger.LogInfo($"[MenuPatches] Notification translation lookup: '{pMessage}' -> '{translation}'");
-                if (translation != null)
-                {
-                    pMessage = MenuTranslations.FormatBilingual(pMessage, translation);
-                    Logger.LogInfo($"[MenuPatches] Notification result: '{pMessage}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in Notify_Prefix: {ex}");
+                Logger.LogInfo($"[{ctx} Lookup] '{text}' -> '{t}'");
+                text = MenuTranslations.FormatBilingual(text, t);
+                Logger.LogInfo($"[{ctx} Result] '{text}'");
             }
         }
+        catch (Exception ex) { Logger.LogError($"Error in {ctx}: {ex}"); }
+    }
 
-        /// <summary>
-        /// Patch WorldSettings.Hint to translate tutorial hints.
-        /// Hints come from .dia files (e.g., HelpSequence1.dia, HelpSequence2.dia)
-        /// and are displayed via _inGameHelpPanel.ShowNotification()
-        /// </summary>
-        [HarmonyPatch(typeof(WorldSettings), "Hint")]
-        [HarmonyPrefix]
-        public static void Hint_Prefix(ref string pMessage)
+    [HarmonyPatch(typeof(Shell), "ShowTooltip"), HarmonyPrefix]
+    public static void ShowTooltip(Shell __instance, ref string pInteractionText, ref string pInteractionText2)
+    {
+        if (!IsActive) return;
+        try
         {
-            Logger.LogInfo($"[MenuPatches] Hint_Prefix called with: '{pMessage}'");
+            TranslateAndApply(ref pInteractionText, "Tooltip");
+            TranslateAndApply(ref pInteractionText2, "Tooltip2");
+        }
+        catch (Exception ex) { Logger.LogError($"Error in ShowTooltip: {ex}"); }
 
-            if (!IsCustomLanguageActive())
+        void TranslateAndApply(ref string s, string ctx)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            var t = MenuTranslations.TranslateComposedTooltip(s);
+            if (t != s)
             {
-                Logger.LogWarning("[MenuPatches] Custom language NOT active, skipping");
-                return;
-            }
-
-            try
-            {
-                string translation = MenuTranslations.TranslateNotification(pMessage);
-                Logger.LogInfo($"[MenuPatches] Hint translation lookup: '{pMessage}' -> '{translation}'");
-                if (translation != null)
-                {
-                    pMessage = MenuTranslations.FormatBilingual(pMessage, translation);
-                    Logger.LogInfo($"[MenuPatches] Hint result: '{pMessage}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in Hint_Prefix: {ex}");
+                s = t;
+                Logger.LogInfo($"[{ctx}] '{s}'");
             }
         }
+    }
 
-        /// <summary>
-        /// Patch MimanTing.Say to translate dialogue bubbles.
-        /// </summary>
-        [HarmonyPatch(typeof(MimanTing), "Say")]
-        [HarmonyPrefix]
-        public static void Say_Prefix(ref string pLine)
+    [HarmonyPatch(typeof(PlayerRoamingState), "BuildInteractionMenu"), HarmonyPostfix]
+    public static void BuildInteractionMenu(PlayerRoamingState __instance) => TranslateMenus(__instance);
+
+    [HarmonyPatch(typeof(PlayerRoamingState), "BuildInventoryMenu"), HarmonyPostfix]
+    public static void BuildInventoryMenu(PlayerRoamingState __instance) => TranslateMenus(__instance);
+
+    private static void TranslateMenus(PlayerRoamingState instance)
+    {
+        if (!IsActive) return;
+        try
         {
-            Logger.LogInfo($"[MenuPatches] Say_Prefix called with: '{pLine}'");
+             var menu = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu").GetValue(instance) as ActionMenu;
+             if (menu?.items == null) return;
 
-            if (!IsCustomLanguageActive())
-            {
-                Logger.LogInfo("[MenuPatches] Custom language NOT active, skipping");
-                return;
-            }
-            if (string.IsNullOrEmpty(pLine)) return;
+             Logger.LogInfo($"Translating {menu.items.Length} items...");
 
-            try
-            {
-                string translation = MenuTranslations.TranslateDialogue(pLine);
-                if (translation != null)
-                {
-                    Logger.LogInfo($"[MenuPatches] Dialogue translation lookup: '{pLine}' -> '{translation}'");
-                    pLine = MenuTranslations.FormatBilingual(pLine, translation);
-                    Logger.LogInfo($"[MenuPatches] Dialogue result: '{pLine}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in Say_Prefix: {ex}");
-            }
+             foreach(var item in menu.items)
+             {
+                 if (item == null || string.IsNullOrEmpty(item.text)) continue;
+
+                 var orig = item.text;
+                 if (MenuTranslations.TranslateMenuText(orig) is { } trans)
+                 {
+                     item.text = MenuTranslations.FormatBilingual(orig, trans);
+                     Logger.LogInfo($"[Menu] '{orig}' -> '{item.text}'");
+                 }
+                 else
+                 {
+                     var comp = MenuTranslations.TranslateComposedTooltip(orig);
+                     if (comp != orig)
+                     {
+                         item.text = comp;
+                         Logger.LogInfo($"[Menu Composed] '{orig}' -> '{item.text}'");
+                     }
+                 }
+             }
         }
+        catch (Exception ex) { Logger.LogError($"Error menus: {ex}"); }
+    }
 
-        /// <summary>
-        /// Patch Shell.ShowTooltip to translate tooltip text before it's displayed.
-        /// This catches all tooltips, including interaction text and secondary text (e.g. hack/use).
-        /// </summary>
-        [HarmonyPatch(typeof(Shell), "ShowTooltip")]
-        [HarmonyPrefix]
-        public static void ShowTooltip_Prefix(Shell __instance, ref string pInteractionText, ref string pInteractionText2)
+    [HarmonyPatch(typeof(BubbleCanvasController), "CreateBubble"), HarmonyPostfix]
+    public static void CreateBubble(Bubble __result, string pText)
+    {
+        if (!IsActive) return;
+        var lang = TranslationConfig.ActiveLanguage;
+        if (lang.CharacterWidthMultiplier <= 1.0f) return;
+
+        try
         {
-            if (!IsCustomLanguageActive()) return;
+            float extra = 0f;
+            float perChar = 7f * (lang.CharacterWidthMultiplier - 1.0f);
+            foreach(char c in pText) if (c > 255) extra += perChar;
 
-            try
-            {
-                // Translate primary text (e.g., "open door")
-                if (!string.IsNullOrEmpty(pInteractionText))
-                {
-                    string translation = MenuTranslations.TranslateComposedTooltip(pInteractionText);
-                    if (translation != pInteractionText)
-                    {
-                        pInteractionText = translation;
-                        Logger.LogInfo($"[MenuPatches] Tooltip translated: '{translation}'");
-                    }
-                }
-
-                // Translate secondary text (e.g., "hack door")
-                if (!string.IsNullOrEmpty(pInteractionText2))
-                {
-                    string translation2 = MenuTranslations.TranslateComposedTooltip(pInteractionText2);
-                    if (translation2 != pInteractionText2)
-                    {
-                        pInteractionText2 = translation2;
-                        Logger.LogInfo($"[MenuPatches] Tooltip secondary translated: '{translation2}'");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in ShowTooltip_Prefix: {ex}");
-            }
+            if (extra > 0 && __result.GetComponent<RectTransform>() is { } rt)
+                rt.sizeDelta += new Vector2(extra, 0);
         }
-
-        /// <summary>
-        /// Helper to translate items in the ActionMenu.
-        /// </summary>
-        private static void TranslateMenuItems(ActionMenu actionMenu)
-        {
-            if (actionMenu == null || actionMenu.items == null) return;
-
-            Logger.LogInfo($"[MenuPatches] Translating {actionMenu.items.Length} menu items...");
-
-            for (int i = 0; i < actionMenu.items.Length; i++)
-            {
-                var item = actionMenu.items[i];
-                if (item == null || string.IsNullOrEmpty(item.text)) continue;
-
-                string originalText = item.text;
-                // Try translation
-                string translation = MenuTranslations.TranslateMenuText(originalText);
-
-                if (translation != null)
-                {
-                    item.text = MenuTranslations.FormatBilingual(originalText, translation);
-                    Logger.LogInfo($"[MenuPatches] Menu item translated: '{originalText}' -> '{item.text}'");
-                }
-                else
-                {
-                    string composedTranslation = MenuTranslations.TranslateComposedTooltip(originalText);
-                    if (composedTranslation != originalText) // different means it was translated
-                    {
-                        item.text = composedTranslation;
-                        Logger.LogInfo($"[MenuPatches] Composed item translated: '{originalText}' -> '{item.text}'");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Patch PlayerRoamingState.BuildInteractionMenu to translate items after they are set.
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerRoamingState), "BuildInteractionMenu")]
-        [HarmonyPostfix]
-        public static void BuildInteractionMenu_Postfix(PlayerRoamingState __instance)
-        {
-            if (!IsCustomLanguageActive()) return;
-
-            try
-            {
-                // private field, access using reflection
-                var field = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu");
-                ActionMenu actionMenu = (ActionMenu)field.GetValue(__instance);
-
-                TranslateMenuItems(actionMenu);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in BuildInteractionMenu_Postfix: {ex}");
-            }
-        }
-
-        /// <summary>
-        /// Patch PlayerRoamingState.BuildInventoryMenu to translate items after they are set.
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerRoamingState), "BuildInventoryMenu")]
-        [HarmonyPostfix]
-        public static void BuildInventoryMenu_Postfix(PlayerRoamingState __instance)
-        {
-            if (!IsCustomLanguageActive()) return;
-
-            try
-            {
-                var field = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu");
-                ActionMenu actionMenu = (ActionMenu)field.GetValue(__instance);
-
-                TranslateMenuItems(actionMenu);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in BuildInventoryMenu_Postfix: {ex}");
-            }
-        }
-
-        /// <summary>
-        /// Check if a custom language is currently active.
-        /// </summary>
-        private static bool IsCustomLanguageActive()
-        {
-            return TranslationConfig.ActiveLanguage != null;
-        }
-
-        /// <summary>
-        /// Patch BubbleCanvasController.CreateBubble to adjust bubble width for CJK languages.
-        /// original: float x = pText.Length * 7f
-        /// </summary>
-        [HarmonyPatch(typeof(BubbleCanvasController), "CreateBubble")]
-        [HarmonyPostfix]
-        public static void CreateBubble_Postfix(Bubble __result, string pText)
-        {
-            // Only apply if custom language is active
-            if (!IsCustomLanguageActive())
-                return;
-
-            var lang = TranslationConfig.ActiveLanguage;
-            if (lang == null || lang.CharacterWidthMultiplier <= 1.0f)
-                return;
-
-            try
-            {
-                float additionalWidth = 0f;
-                float extraPerChar = 7f * (lang.CharacterWidthMultiplier - 1.0f);
-                foreach (char c in pText)
-                {
-                    if (c > 255) // non-ASCII characters
-                    {
-                        additionalWidth += extraPerChar;
-                    }
-                }
-
-                if (additionalWidth > 0)
-                {
-                    var rectTransform = __result.GetComponent<UnityEngine.RectTransform>();
-                    if (rectTransform != null)
-                    {
-                        rectTransform.sizeDelta += new UnityEngine.Vector2(additionalWidth, 0);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in CreateBubble_Postfix: {ex}");
-            }
-        }
+        catch (Exception ex) { Logger.LogError($"Error CreateBubble: {ex}"); }
     }
 }

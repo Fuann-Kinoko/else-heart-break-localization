@@ -4,220 +4,125 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using GameWorld2;
-using System.IO;
-using System.Linq;
 
-namespace TranslationPlugin
+namespace TranslationPlugin;
+
+public class TranslationPatches
 {
-    public class TranslationPatches
+    private static ManualLogSource Logger => Plugin.Logger;
+
+    [HarmonyPatch(typeof(Translator), "FoundFile"), HarmonyPrefix]
+    public static bool FoundFile(Translator __instance, string pFilepath)
     {
-        private static ManualLogSource Logger => Plugin.Logger;
+        var lang = TranslationConfig.Languages.Find(l =>
+            pFilepath.EndsWith(".mtf") &&
+            pFilepath.Contains("." + l.FileIdentifier) &&
+            (string.IsNullOrEmpty(l.TranslationFolder) || pFilepath.Replace('\\', '/').Contains("/Translations/" + l.TranslationFolder + "/"))
+        );
 
-        [HarmonyPatch(typeof(Translator), "FoundFile")]
-        [HarmonyPrefix]
-        public static bool FoundFile_Prefix(Translator __instance, string pFilepath)
+        if (lang == null) return true;
+
+        Logger.LogInfo($"Found custom file [{lang.Code}]: {pFilepath}");
+        try
         {
-            // Check if this file belongs to any of custom languages
-            LanguageConfig matchedLang = null;
+            var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
+                AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
 
-            foreach (var lang in TranslationConfig.Languages)
+            var customLang = (Translator.Language)lang.CustomLanguageId;
+            if (!dict.ContainsKey(customLang))
             {
-                if (pFilepath.EndsWith(".mtf") && pFilepath.Contains("." + lang.FileIdentifier))
-                {
-                    string unifiedPath = pFilepath.Replace('\\', '/');
-                    if (!string.IsNullOrEmpty(lang.TranslationFolder))
-                    {
-                        if (unifiedPath.Contains("/Translations/" + lang.TranslationFolder + "/"))
-                        {
-                            matchedLang = lang;
-                            break;
-                        }
-                        else
-                        {
-                            Logger.LogDebug($"File {pFilepath} matches identifier '{lang.FileIdentifier}' but not in folder '{lang.TranslationFolder}'");
-                        }
-                    }
-                    else
-                    {
-                        matchedLang = lang;
-                        break;
-                    }
-                }
+                dict.Add(customLang, new Dictionary<string, Dictionary<string, string>>());
+                Logger.LogInfo($"Init dict for {lang.DisplayName} ({lang.CustomLanguageId})");
             }
 
-            if (matchedLang == null)
-            {
-                // Not a custom language file, let the game handle it
-                return true;
-            }
-
-            Logger.LogInfo($"Found custom translation file for [{matchedLang.Code}]: {pFilepath}");
-
-            try
-            {
-                FieldInfo dictField = AccessTools.Field(typeof(Translator), "_dict");
-                var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)dictField.GetValue(__instance);
-
-                var customLang = (Translator.Language)matchedLang.CustomLanguageId;
-
-                if (!dict.ContainsKey(customLang))
-                {
-                    dict.Add(customLang, new Dictionary<string, Dictionary<string, string>>());
-                    Logger.LogInfo($"Initialized dictionary for language: {matchedLang.DisplayName} (ID: {matchedLang.CustomLanguageId})");
-                }
-
-                MethodInfo loadMethod = AccessTools.Method(typeof(Translator), "LoadTranslationsFile");
-                loadMethod.Invoke(__instance, new object[] { pFilepath, customLang });
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error loading custom translation file {pFilepath}: {ex}");
-            }
-
-            return false;
+            AccessTools.Method(typeof(Translator), "LoadTranslationsFile")
+                .Invoke(__instance, new object[] { pFilepath, customLang });
         }
+        catch (Exception ex) { Logger.LogError($"Error loading {pFilepath}: {ex}"); }
 
-        [HarmonyPatch(typeof(Translator), "LoadTranslationFiles")]
-        [HarmonyPostfix]
-        public static void LoadTranslationFiles_Postfix(Translator __instance)
+        return false;
+    }
+
+    [HarmonyPatch(typeof(Translator), "LoadTranslationFiles"), HarmonyPostfix]
+    public static void LoadTranslationFiles(Translator __instance)
+    {
+        try
         {
-            try
-            {
-                FieldInfo dictField = AccessTools.Field(typeof(Translator), "_dict");
-                var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)dictField.GetValue(__instance);
+             var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
+                AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
 
-                foreach (var lang in TranslationConfig.Languages)
-                {
-                    var customLang = (Translator.Language)lang.CustomLanguageId;
-
-                    if (!dict.ContainsKey(customLang))
-                    {
-                        Logger.LogInfo($"Initializing dictionary for {lang.DisplayName} ({lang.Code}) in LoadTranslationFiles_Postfix.");
-                        dict.Add(customLang, new Dictionary<string, Dictionary<string, string>>());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in LoadTranslationFiles_Postfix: {ex}");
-            }
+             foreach(var lang in TranslationConfig.Languages)
+             {
+                 var cl = (Translator.Language)lang.CustomLanguageId;
+                 if (!dict.ContainsKey(cl)) dict.Add(cl, new Dictionary<string, Dictionary<string, string>>());
+             }
         }
+        catch (Exception ex) { Logger.LogError($"LoadTranslationFiles err: {ex}"); }
+    }
 
-        [HarmonyPatch(typeof(World), "RefreshTranslationLanguage")]
-        [HarmonyPrefix]
-        public static bool RefreshTranslationLanguage_Prefix(World __instance)
+    [HarmonyPatch(typeof(World), "RefreshTranslationLanguage"), HarmonyPrefix]
+    public static bool RefreshTranslationLanguage(World __instance)
+    {
+        var code = __instance.settings.translationLanguage;
+        var lang = TranslationConfig.GetLanguageByCode(code);
+        if (lang == null) return true;
+
+        Logger.LogInfo($"Setting language: {lang.DisplayName} ({lang.Code})");
+        if (TranslationConfig.SetActiveLanguage(code)) MenuTranslations.Reload();
+
+        try
         {
-            string currentLangCode = __instance.settings.translationLanguage;
-            var langConfig = TranslationConfig.GetLanguageByCode(currentLangCode);
-            if (langConfig != null)
+            AccessTools.Method(typeof(Translator), "SetLanguage")
+                .Invoke(__instance.translator, new object[] { (Translator.Language)lang.CustomLanguageId });
+        }
+        catch (Exception ex) { Logger.LogError($"SetLanguage err: {ex}"); }
+        return false;
+    }
+
+    [HarmonyPatch(typeof(Translator), "Get"), HarmonyPrefix]
+    public static bool Get(Translator __instance, string pSentenceToTranslate, string pDialogue, ref string __result)
+    {
+        try
+        {
+            var curLang = (Translator.Language)AccessTools.Field(typeof(Translator), "_language").GetValue(__instance);
+            var langConfig = TranslationConfig.GetLanguageById((int)curLang);
+
+            if (langConfig == null) return true;
+
+            var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
+                 AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
+
+            if (dict == null) { __result = pSentenceToTranslate; return false; }
+
+            string custom = null, english = null;
+
+            // 1. Custom
+            if (dict.TryGetValue(curLang, out var lDict) &&
+                lDict.TryGetValue(pDialogue, out var dDict))
+                dDict.TryGetValue(pSentenceToTranslate, out custom);
+
+            // 2. English
+            if (dict.TryGetValue(Translator.Language.ENGLISH, out var eDict) &&
+                eDict.TryGetValue(pDialogue, out var edDict))
+                edDict.TryGetValue(pSentenceToTranslate, out english);
+
+            english ??= pSentenceToTranslate;
+
+            if (custom != null)
             {
-                Logger.LogInfo($"RefreshTranslationLanguage: Setting language to custom: {langConfig.DisplayName} ({langConfig.Code})");
-
-                if (TranslationConfig.SetActiveLanguage(currentLangCode))
-                {
-                    // Reload menu translations for the new language
-                    MenuTranslations.Reload();
-                }
-
-                try
-                {
-                    MethodInfo setLanguageMethod = AccessTools.Method(typeof(Translator), "SetLanguage");
-                    setLanguageMethod.Invoke(__instance.translator, new object[] { (Translator.Language)langConfig.CustomLanguageId });
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError($"Error setting custom language: {ex}");
-                }
-
+                __result = TranslationConfig.BilingualModeEnabled ? $"{english}\n{custom}" : custom;
                 return false;
             }
 
-            return true;
-        }
-
-        [HarmonyPatch(typeof(Translator), "Get")]
-        [HarmonyPrefix]
-        public static bool Get_Prefix(Translator __instance, string pSentenceToTranslate, string pDialogue, ref string __result)
-        {
-            try
+            if (TranslationConfig.FallbackToEnglish)
             {
-                FieldInfo languageField = AccessTools.Field(typeof(Translator), "_language");
-                var currentLang = (Translator.Language)languageField.GetValue(__instance);
-                int currentLangId = (int)currentLang;
-
-                var langConfig = TranslationConfig.GetLanguageById(currentLangId);
-                if (langConfig != null)
-                {
-                    FieldInfo dictField = AccessTools.Field(typeof(Translator), "_dict");
-                    var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)dictField.GetValue(__instance);
-
-                    if (dict == null)
-                    {
-                        Logger.LogError("Translator dictionary is null!");
-                        __result = pSentenceToTranslate;
-                        return false;
-                    }
-
-                    // 1. Get Custom Translation
-                    Dictionary<string, Dictionary<string, string>> langDict;
-                    dict.TryGetValue((Translator.Language)langConfig.CustomLanguageId, out langDict);
-
-                    string customText = null;
-                    if (langDict != null)
-                    {
-                        Dictionary<string, string> dialogueDict;
-                        if (langDict.TryGetValue(pDialogue, out dialogueDict))
-                        {
-                            dialogueDict.TryGetValue(pSentenceToTranslate, out customText);
-                        }
-                    }
-
-                    // 2. Get English Translation (for Bilingual mode or Fallback)
-                    string englishText = null;
-                    Dictionary<string, Dictionary<string, string>> engDict;
-                    if (dict.TryGetValue(Translator.Language.ENGLISH, out engDict))
-                    {
-                        Dictionary<string, string> engDialogueDict;
-                        if (engDict.TryGetValue(pDialogue, out engDialogueDict))
-                        {
-                            engDialogueDict.TryGetValue(pSentenceToTranslate, out englishText);
-                        }
-                    }
-                    if (string.IsNullOrEmpty(englishText)) englishText = pSentenceToTranslate;
-
-                    // 3. Return result based on what we found
-                    if (customText != null)
-                    {
-                        if (Plugin.BilingualMode)
-                        {
-                            __result = englishText + "\n" + customText;
-                        }
-                        else
-                        {
-                            __result = customText;
-                        }
-                        return false;
-                    }
-
-                    // If Custom MISSING:
-                    if (TranslationConfig.FallbackToEnglish)
-                    {
-                        Logger.LogWarning($"[{langConfig.Code}] Fallback to English for '{pSentenceToTranslate}' in '{pDialogue}'");
-                        __result = englishText;
-                        return false;
-                    }
-
-                    __result = pSentenceToTranslate;
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Error in Translator.Get Prefix: {ex}");
-                return true;
+                __result = english;
+                return false;
             }
 
-            return true;
+            __result = pSentenceToTranslate;
+            return false;
         }
+        catch (Exception ex) { Logger.LogError($"Translator.Get err: {ex}"); return true; }
     }
 }

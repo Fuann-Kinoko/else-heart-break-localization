@@ -1,188 +1,116 @@
 using BepInEx.Logging;
 using HarmonyLib;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TranslationPlugin
+namespace TranslationPlugin;
+
+public class UIPatches
 {
-    public class UIPatches
+    private static ManualLogSource Logger => Plugin.Logger;
+    private const string PrefKey = "EHTranslation_Language";
+
+    [HarmonyPatch(typeof(MainMenu), "Start"), HarmonyPostfix]
+    public static void Start_Postfix(MainMenu __instance)
     {
-        private static ManualLogSource Logger => Plugin.Logger;
-        private const string PrefKey = "EHTranslation_Language";
+        RestorePreference(__instance);
+        SetupLanguageButtons(__instance);
+    }
 
-        [HarmonyPatch(typeof(MainMenu), "Start")]
-        [HarmonyPostfix]
-        public static void Start_Postfix(MainMenu __instance)
+    private static void RestorePreference(MainMenu menu)
+    {
+        if (!PlayerPrefs.HasKey(PrefKey)) return;
+
+        var saved = PlayerPrefs.GetString(PrefKey);
+        Logger.LogInfo($"Restoring language: {saved}");
+
+        if (TranslationConfig.SetActiveLanguage(saved)) menu.SetLanguage(saved);
+    }
+
+    private static void SetupLanguageButtons(MainMenu menu)
+    {
+        var root = GameObject.Find("LanguageButtons/Languages");
+        if (root == null) return;
+
+        // Hook existing
+        HookButton(root, "English", "eng");
+        HookButton(root, "Swedish", "swe");
+
+        // Create new
+        CreateCustomButtons(root.transform, menu);
+    }
+
+    private static void HookButton(GameObject root, string name, string code)
+    {
+        var t = root.transform.Find(name);
+        if (t != null && t.GetComponent<Button>() is { } btn)
+            btn.onClick.AddListener(() => SavePref(code));
+    }
+
+    private static void SavePref(string code)
+    {
+        Logger.LogInfo($"Selected: {code}");
+        PlayerPrefs.SetString(PrefKey, code);
+        PlayerPrefs.Save();
+    }
+
+    private static void CreateCustomButtons(Transform container, MainMenu menu)
+    {
+        var english = container.Find("English");
+        var swedish = container.Find("Swedish");
+
+        var template = english ?? swedish;
+        if (template == null) { Logger.LogError("No template button"); return; }
+
+        float spacing = (english != null && swedish != null)
+            ? english.localPosition.y - swedish.localPosition.y
+            : 35f;
+
+        var startPos = (swedish ?? english).localPosition;
+
+        for (int i = 0; i < TranslationConfig.Languages.Count; i++)
         {
-            // Restore Language from Prefs
-            if (PlayerPrefs.HasKey(PrefKey))
-            {
-                string savedLang = PlayerPrefs.GetString(PrefKey);
-                Logger.LogInfo($"Restoring saved language: {savedLang}");
+            var lang = TranslationConfig.Languages[i];
+            var btnName = $"CustomLanguage_{lang.Code}";
+            if (container.Find(btnName)) continue;
 
-                // Check if it's a custom language and set it as active
-                if (TranslationConfig.IsCustomLanguageCode(savedLang))
-                {
-                    TranslationConfig.SetActiveLanguage(savedLang);
-                }
+            var btnObj = (GameObject)Object.Instantiate(template.gameObject);
+            btnObj.name = btnName;
+            btnObj.transform.SetParent(container, false);
+            btnObj.transform.localScale = Vector3.one;
+            btnObj.transform.localPosition = startPos - new Vector3(0, spacing * (i + 1), 0);
 
-                __instance.SetLanguage(savedLang);
-            }
+            SetButtonText(btnObj, lang.DisplayName);
+            SetupButtonAction(btnObj, lang, menu);
 
-            var languageButtonsRoot = GameObject.Find("LanguageButtons");
-            if (languageButtonsRoot == null) return;
-
-            var languagesContainer = languageButtonsRoot.transform.Find("Languages");
-            if (languagesContainer == null) return;
-
-            // Hook existing language buttons to save preference
-            var englishBtn = languagesContainer.Find("English");
-            if (englishBtn != null)
-            {
-                var btn = englishBtn.GetComponent<Button>();
-                btn.onClick.AddListener(() => {
-                    Logger.LogInfo("English selected - Saving preference.");
-                    PlayerPrefs.SetString(PrefKey, "eng");
-                    PlayerPrefs.Save();
-                });
-            }
-
-            var swedishBtn = languagesContainer.Find("Swedish");
-            if (swedishBtn != null)
-            {
-                var btn = swedishBtn.GetComponent<Button>();
-                btn.onClick.AddListener(() => {
-                    Logger.LogInfo("Swedish selected - Saving preference.");
-                    PlayerPrefs.SetString(PrefKey, "swe");
-                    PlayerPrefs.Save();
-                });
-            }
-
-            // Create buttons for all custom languages
-            CreateCustomLanguageButtons(languagesContainer, __instance);
+            Logger.LogInfo($"Created button: {lang.DisplayName}");
         }
 
-        /// <summary>
-        /// Creates UI buttons for all custom languages defined in the configuration.
-        /// </summary>
-        private static void CreateCustomLanguageButtons(Transform languagesContainer, MainMenu mainMenu)
+        // Adjust hint text
+        var hint = container.Find("This can be changed later");
+        if (hint != null)
+            hint.localPosition -= new Vector3(0, spacing * TranslationConfig.Languages.Count, 0);
+    }
+
+    private static void SetButtonText(GameObject obj, string text)
+    {
+        if (obj.GetComponentInChildren<Text>() is { } t) t.text = text;
+        else if (obj.transform.Find("Text")?.GetComponent<Text>() is { } t2) t2.text = text;
+    }
+
+    private static void SetupButtonAction(GameObject obj, LanguageConfig lang, MainMenu menu)
+    {
+        var btn = obj.GetComponent<Button>();
+        if (btn == null) return;
+
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() =>
         {
-            // Find a template button (English button is preferred as it calls NewGame("eng"))
-            var englishBtn = languagesContainer.Find("English");
-            var swedishBtn = languagesContainer.Find("Swedish");
-            Transform template = englishBtn ?? swedishBtn;
+            SavePref(lang.Code);
+            TranslationConfig.SetActiveLanguage(lang.Code);
 
-            if (template == null)
-            {
-                Logger.LogError("No template button found for creating custom language buttons.");
-                return;
-            }
-
-            // Calculate spacing between buttons
-            float buttonSpacing = 35f; // Default spacing
-            if (englishBtn != null && swedishBtn != null)
-            {
-                buttonSpacing = englishBtn.localPosition.y - swedishBtn.localPosition.y;
-            }
-
-            // We want to add custom languages BELOW the Swedish button (or English if Swedish missing)
-            // Current order: English (Top) -> Swedish (Bottom) -> Custom1 -> Custom2
-            Transform lastButton = swedishBtn ?? englishBtn;
-            Vector3 basePosition = lastButton.localPosition;
-
-            // Create a button for each custom language
-            for (int i = 0; i < TranslationConfig.Languages.Count; i++)
-            {
-                var langConfig = TranslationConfig.Languages[i];
-                string buttonName = $"CustomLanguage_{langConfig.Code}";
-
-                // Skip if button already exists
-                if (languagesContainer.Find(buttonName) != null)
-                {
-                    Logger.LogDebug($"Button for {langConfig.Code} already exists, skipping.");
-                    continue;
-                }
-
-                // Create the button by cloning the template
-                // The template button (English/Swedish) already has onClick setup to call NewGame(lang)
-                GameObject newButtonObj = (GameObject)Object.Instantiate(template.gameObject);
-                newButtonObj.transform.SetParent(languagesContainer, false);
-                newButtonObj.transform.localScale = Vector3.one;
-                newButtonObj.name = buttonName;
-
-                // Position the button below the last button
-                Vector3 newPos = basePosition;
-                newPos.y -= buttonSpacing * (i + 1);
-                newButtonObj.transform.localPosition = newPos;
-
-                // Update the button text
-                var textComp = newButtonObj.GetComponentInChildren<Text>();
-                if (textComp != null)
-                {
-                    textComp.text = langConfig.DisplayName;
-                }
-                else
-                {
-                    var textTransform = newButtonObj.transform.Find("Text");
-                    if (textTransform != null)
-                    {
-                        textTransform.GetComponent<Text>().text = langConfig.DisplayName;
-                    }
-                }
-
-                // Setup button click handler
-                // IMPORTANT: We need to REPLACE the onClick listeners because the cloned button
-                // still references the original language (eng/swe). We replicate the same behavior
-                // but with our custom language code.
-                var buttonComp = newButtonObj.GetComponent<Button>();
-                if (buttonComp != null)
-                {
-                    buttonComp.onClick.RemoveAllListeners();
-
-                    // Capture the language config in closure
-                    var capturedLang = langConfig;
-                    buttonComp.onClick.AddListener(() =>
-                    {
-                        Logger.LogInfo($"Custom language '{capturedLang.DisplayName}' ({capturedLang.Code}) selected.");
-
-                        // Set this as the active language in config
-                        TranslationConfig.SetActiveLanguage(capturedLang.Code);
-
-                        // Save preference
-                        PlayerPrefs.SetString(PrefKey, capturedLang.Code);
-                        PlayerPrefs.Save();
-
-                        // Check if we're in the main menu (before game starts) or in-game pause menu
-                        if (mainMenu.controls == null)
-                        {
-                            // Main menu - start new game with this language
-                            Logger.LogInfo($"Starting new game with language: {capturedLang.Code}");
-                            mainMenu.NewGame(capturedLang.Code);
-                        }
-                        else
-                        {
-                            // In-game pause menu - just switch language
-                            Logger.LogInfo($"Switching in-game language to: {capturedLang.Code}");
-                            mainMenu.SetLanguage(capturedLang.Code);
-                        }
-                    });
-                }
-
-                Logger.LogInfo($"Created language button: {langConfig.DisplayName} ({langConfig.Code})");
-            }
-
-            // Move the "Can also be changed while playing" text down
-            // Name in hierarchy is "This can be changed later"
-            var hintText = languagesContainer.Find("This can be changed later");
-            if (hintText != null)
-            {
-                Vector3 newPos = hintText.localPosition;
-                // Move it down by the total height added (count * spacing)
-                newPos.y -= buttonSpacing * TranslationConfig.Languages.Count;
-                hintText.localPosition = newPos;
-                Logger.LogInfo($"Moved hint text down to: {newPos.y}");
-            }
-        }
+            if (menu.controls == null) menu.NewGame(lang.Code);
+            else menu.SetLanguage(lang.Code);
+        });
     }
 }
