@@ -96,9 +96,9 @@ namespace TranslationPlugin
             try
             {
                 string translation = MenuTranslations.TranslateDialogue(pLine);
-                Logger.LogInfo($"[MenuPatches] Dialogue translation lookup: '{pLine}' -> '{translation}'");
                 if (translation != null)
                 {
+                    Logger.LogInfo($"[MenuPatches] Dialogue translation lookup: '{pLine}' -> '{translation}'");
                     pLine = MenuTranslations.FormatBilingual(pLine, translation);
                     Logger.LogInfo($"[MenuPatches] Dialogue result: '{pLine}'");
                 }
@@ -241,6 +241,42 @@ namespace TranslationPlugin
         private static bool IsCustomLanguageActive()
         {
             return TranslationConfig.ActiveLanguage != null;
+        }
+
+        /// <summary>
+        /// Patch BubbleCanvasController.CreateBubble to adjust bubble width for non-English languages.
+        /// The original code uses: float x = pText.Length * 7f; which assumes 7px per character.
+        /// When NOT in bilingual mode, we multiply by the language's CharacterWidthMultiplier.
+        /// </summary>
+        [HarmonyPatch(typeof(BubbleCanvasController), "CreateBubble")]
+        [HarmonyPostfix]
+        public static void CreateBubble_Postfix(Bubble __result, string pText)
+        {
+            // Only apply if custom language is active AND NOT in bilingual mode
+            // In bilingual mode, the English text is included, so width calculation is fine
+            if (!IsCustomLanguageActive() || Plugin.BilingualMode)
+                return;
+
+            var lang = TranslationConfig.ActiveLanguage;
+            if (lang == null || lang.CharacterWidthMultiplier <= 1.0f)
+                return;
+
+            try
+            {
+                // The original calculation was: sizeDelta += new Vector2(pText.Length * 7f, 0)
+                // We need to add more width: (multiplier - 1.0) * original width
+                float additionalWidth = (float)pText.Length * 7f * (lang.CharacterWidthMultiplier - 1.0f);
+
+                var rectTransform = __result.GetComponent<UnityEngine.RectTransform>();
+                if (rectTransform != null)
+                {
+                    rectTransform.sizeDelta += new UnityEngine.Vector2(additionalWidth, 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Error in CreateBubble_Postfix: {ex}");
+            }
         }
     }
 }

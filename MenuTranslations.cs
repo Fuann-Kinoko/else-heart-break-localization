@@ -214,25 +214,39 @@ namespace TranslationPlugin
 
         /// <summary>
         /// Translate a composed tooltip like "open door" by translating verb and tooltip separately.
-        /// Returns "open door (开门)" format.
+        /// Also handles preposition patterns like "turn water on sink" → "打开水槽水龙头"
+        /// Returns bilingual format based on settings.
         /// </summary>
         public static string TranslateComposedTooltip(string composed)
         {
             if (string.IsNullOrEmpty(composed)) return composed;
 
-            if (_composedCache.TryGetValue(composed, out var cachedResult))
-                return cachedResult;
+            // Cache stores only the translation, not the formatted result
+            // This allows BilingualMode to be toggled at runtime
+            if (_composedCache.TryGetValue(composed, out var cachedTranslation))
+            {
+                if (cachedTranslation == null) return composed; // No translation found (cached null)
+                return FormatBilingual(composed, cachedTranslation);
+            }
 
             // 1. Check for specific overrides in [MenuText] first (e.g. "talk to person" -> "与人交谈")
             var overrideTranslation = TranslateMenuText(composed);
             if (overrideTranslation != null)
             {
-                string result = FormatBilingual(composed, overrideTranslation);
-                _composedCache[composed] = result;
-                return result;
+                _composedCache[composed] = overrideTranslation;
+                return FormatBilingual(composed, overrideTranslation);
             }
 
-            // 2. Try to find matching verb + tooltip pattern
+            // 2. Try preposition pattern: "VERB NOUN PREP OBJECT" -> "VERB OBJECT NOUN"
+            // Examples: "turn water on sink" -> "打开水槽水龙头", "press button on jukebox" -> "按下点唱机按钮"
+            var prepResult = TryTranslateWithPreposition(composed);
+            if (prepResult != null)
+            {
+                _composedCache[composed] = prepResult;
+                return FormatBilingual(composed, prepResult);
+            }
+
+            // 3. Try to find matching verb + tooltip pattern (simple case)
             // Sort verbs by length descending to ensure "turn on" is matched before "turn"
             var sortedVerbs = new List<string>(_verbs.Keys);
             sortedVerbs.Sort((a, b) => b.Length.CompareTo(a.Length));
@@ -245,7 +259,6 @@ namespace TranslationPlugin
                     string remainder = composed.Substring(verb.Length + 1);
 
                     // Handle suffix in nouns, e.g., "booze (100%)" or "booze (empty)"
-                    string suffix = "";
                     string suffixTranslated = "";
                     // Match percentage like (100%) or (50.5%) OR text like (empty)
                     var suffixMatch = Regex.Match(remainder, @"\s*\((\d+(?:\.\d+)?%|[a-zA-Z]+)\)$");
@@ -253,7 +266,6 @@ namespace TranslationPlugin
                     if (suffixMatch.Success)
                     {
                         string suffixContent = suffixMatch.Groups[1].Value;
-                        suffix = " (" + suffixContent + ")";
                         // Try to translate the suffix content (e.g., "empty" -> "空")
                         var suffixTrans = TranslateTooltip(suffixContent);
                         suffixTranslated = " (" + (suffixTrans ?? suffixContent) + ")";
@@ -264,28 +276,41 @@ namespace TranslationPlugin
 
                     if (nounTranslation != null)
                     {
-                        // Both verb and noun translated, re-append percentage suffix if any
-                        string translatedFull = translation + nounTranslation + suffixTranslated;
-                        string result = FormatBilingual(composed, translatedFull);
-                        _composedCache[composed] = result;
-                        return result;
+                        // Both verb and noun translated
+                        string translatedFull = "";
+                        if (translation.Contains("[N]"))
+                        {
+                            translatedFull = translation.Replace("[N]", nounTranslation) + suffixTranslated;
+                        }
+                        else
+                        {
+                            translatedFull = translation + nounTranslation + suffixTranslated;
+                        }
+                        _composedCache[composed] = translatedFull;
+                        return FormatBilingual(composed, translatedFull);
                     }
                     else if (string.IsNullOrEmpty(nounBase) || nounBase.Trim().Length == 0)
                     {
                         // Verb-only translation (e.g., "sit down" with no noun)
-                        string result = FormatBilingual(composed.Trim(), translation);
-                        _composedCache[composed] = result;
-                        return result;
+                        _composedCache[composed] = translation;
+                        return FormatBilingual(composed.Trim(), translation);
                     }
                     else
                     {
                         // Verb translated, Noun NOT translated
                         Logger.LogWarning($"[MenuTranslations] Missing translation for noun: '{nounBase}' in composed: '{composed}'");
 
-                        string mixedTranslation = translation + nounBase + suffixTranslated;
-                        string result = FormatBilingual(composed, mixedTranslation);
-                        _composedCache[composed] = result;
-                        return result;
+                        string mixedTranslation = "";
+                        if (translation.Contains("[N]"))
+                        {
+                             mixedTranslation = translation.Replace("[N]", nounBase) + suffixTranslated;
+                        }
+                        else
+                        {
+                             mixedTranslation = translation + nounBase + suffixTranslated;
+                        }
+                        _composedCache[composed] = mixedTranslation;
+                        return FormatBilingual(composed, mixedTranslation);
                     }
                 }
             }
@@ -294,31 +319,143 @@ namespace TranslationPlugin
             var verbTranslation = TranslateVerb(composed);
             if (verbTranslation != null)
             {
-                string result = FormatBilingual(composed, verbTranslation);
-                _composedCache[composed] = result;
-                return result;
+                _composedCache[composed] = verbTranslation;
+                return FormatBilingual(composed, verbTranslation);
             }
 
             // Fallback 2: try direct lookup in tooltips (for noun-only items)
             var tooltipTranslation = TranslateTooltip(composed);
             if (tooltipTranslation != null)
             {
-                string result = FormatBilingual(composed, tooltipTranslation);
-                _composedCache[composed] = result;
-                return result;
+                _composedCache[composed] = tooltipTranslation;
+                return FormatBilingual(composed, tooltipTranslation);
             }
 
             // Fallback 3: try direct lookup in notifications (sometimes used for full sentences)
             var directTranslation = TranslateNotification(composed);
             if (directTranslation != null)
             {
-                string result = FormatBilingual(composed, directTranslation);
-                _composedCache[composed] = result;
-                return result;
+                _composedCache[composed] = directTranslation;
+                return FormatBilingual(composed, directTranslation);
             }
 
-            _composedCache[composed] = composed;
+            // No translation found - cache null to avoid repeated lookups
+            _composedCache[composed] = null;
             return composed;
+        }
+
+        /// <summary>
+        /// Common prepositions in game text that indicate word order should be reversed.
+        /// Pattern: "VERB NOUN PREP OBJECT" → Chinese: "VERB翻译 + OBJECT翻译 + NOUN翻译"
+        /// </summary>
+        private static readonly string[] _prepositions = { " on ", " in ", " at ", " from ", " into " };
+
+        /// <summary>
+        /// Try to translate using preposition pattern.
+        /// E.g., "turn water on sink" -> verb="turn", noun="water", prep="on", object="sink"
+        ///
+        /// First tries to find "turn water" as a complete verb phrase in verbs.mtf
+        /// If found: uses that translation + object translation
+        /// If not: uses verb translation + object translation + noun translation (reordered)
+        /// </summary>
+        private static string TryTranslateWithPreposition(string composed)
+        {
+            // First, find which preposition is used (if any)
+            string foundPrep = null;
+            int prepIndex = -1;
+
+            foreach (var prep in _prepositions)
+            {
+                int idx = composed.IndexOf(prep, StringComparison.OrdinalIgnoreCase);
+                if (idx > 0)
+                {
+                    // Found a preposition, prefer the last one to handle cases like "turn on water in sink"
+                    if (prepIndex < 0 || idx > prepIndex)
+                    {
+                        foundPrep = prep;
+                        prepIndex = idx;
+                    }
+                }
+            }
+
+            if (foundPrep == null) return null;
+
+            // Split: "turn on water in sink" -> beforePrep="turn on water", afterPrep="sink"
+            string beforePrep = composed.Substring(0, prepIndex).Trim();
+            string objectPart = composed.Substring(prepIndex + foundPrep.Length).Trim();
+
+            // Check if beforePrep (e.g., "turn on water in" without the prep) has a translation
+            // The translation may contain [N] placeholder for the object position
+            // E.g., "turn on water in" => "打开[N]水龙头"
+            // With sink -> "水槽", result: "打开水槽水龙头"
+
+            // First, try the full beforePrep + prep pattern (without trailing space issues)
+            string verbWithPrep = beforePrep + foundPrep.TrimEnd();
+            var patternTranslation = TranslateVerb(verbWithPrep);
+
+            if (patternTranslation == null)
+            {
+                // Try just beforePrep
+                patternTranslation = TranslateVerb(beforePrep);
+            }
+
+            if (patternTranslation != null)
+            {
+                string objectTranslation = TranslateTooltip(objectPart) ?? objectPart;
+
+                // Check for [N] placeholder
+                if (patternTranslation.Contains("[N]"))
+                {
+                    return patternTranslation.Replace("[N]", objectTranslation);
+                }
+                else
+                {
+                    // No placeholder, append object at end
+                    return patternTranslation + objectTranslation;
+                }
+            }
+
+            // Fallback: try to find a base verb and handle separately
+            var sortedVerbs = new List<string>(_verbs.Keys);
+            sortedVerbs.Sort((a, b) => b.Length.CompareTo(a.Length));
+
+            foreach (var verb in sortedVerbs)
+            {
+                if (beforePrep.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                {
+                    string verbTranslation = _verbs[verb];
+                    string nounSuffix = beforePrep.Substring(verb.Length + 1).Trim();
+                    string nounSuffixTranslation = TranslateTooltip(nounSuffix) ?? nounSuffix;
+                    string objectTranslation = TranslateTooltip(objectPart) ?? objectPart;
+
+                    // Check for [N] placeholder in verb translation
+                    if (verbTranslation.Contains("[N]"))
+                    {
+                        return verbTranslation.Replace("[N]", objectTranslation) + nounSuffixTranslation;
+                    }
+                    else
+                    {
+                        // Default Chinese order: verb + object + noun-suffix
+                        return verbTranslation + objectTranslation + nounSuffixTranslation;
+                    }
+                }
+                else if (beforePrep.Equals(verb, StringComparison.OrdinalIgnoreCase))
+                {
+                    string verbTranslation = _verbs[verb];
+                    string objectTranslation = TranslateTooltip(objectPart) ?? objectPart;
+
+                    if (verbTranslation.Contains("[N]"))
+                    {
+                        return verbTranslation.Replace("[N]", objectTranslation);
+                    }
+                    else
+                    {
+                        return verbTranslation + objectTranslation;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }
