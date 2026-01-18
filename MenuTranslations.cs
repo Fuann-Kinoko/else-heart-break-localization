@@ -53,11 +53,11 @@ namespace TranslationPlugin
 
             if (language == null) return;
 
-            // Path: ElseHeartbreak_Data/InitData/Translations/{Language}/Menu/
+            // Path: ElseHeartbreak_Data/InitData/MenuTranslations/{Language}/
+            // Separate from game's Translations folder to avoid Translator scanning conflicts
             string initData = Path.Combine(Application.dataPath, "InitData");
-            string translationsDir = Path.Combine(initData, "Translations");
-            string langFolder = Path.Combine(translationsDir, language.TranslationFolder);
-            string menuPath = Path.Combine(langFolder, "Menu");
+            string menuTranslationsDir = Path.Combine(initData, "MenuTranslations");
+            string menuPath = Path.Combine(menuTranslationsDir, language.TranslationFolder);
 
             Logger.LogInfo($"Loading menu translations from: {menuPath}");
 
