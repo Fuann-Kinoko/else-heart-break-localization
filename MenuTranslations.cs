@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace ElseHeartbreakLocalization;
 
-public static class MenuTranslations
+public static partial class MenuTranslations
 {
     private static ManualLogSource Logger => Plugin.Logger;
 
@@ -129,7 +129,7 @@ public static class MenuTranslations
                 if (TranslateTooltip(nounBase) == null) Logger.LogWarning($"Missing noun: '{nounBase}'");
 
                 var finalSuffix = string.IsNullOrEmpty(suffix) ? "" :
-                     (TranslateTooltip(suffix) is { } sTrans ? $" ({sTrans})" : $" ({suffix})");
+                    (TranslateTooltip(suffix) is { } sTrans ? $" ({sTrans})" : $" ({suffix})");
 
                 return vTrans.Contains("[N]")
                     ? vTrans.Replace("[N]", finalNoun) + finalSuffix
@@ -143,20 +143,17 @@ public static class MenuTranslations
     private static string TryTranslateWithPreposition(string text)
     {
         // Find last matching preposition
-        // Can't use ValueTuple here either if not converting to anon object
         var prepIdx = -1;
         string prepStr = null;
 
         foreach (var p in _prepositions)
         {
-             var idx = text.IndexOf(p, StringComparison.OrdinalIgnoreCase);
-             if (idx > 0 && idx > prepIdx) // Find the LAST preposition if logic requires, but previous code just found ANY? No, I implemented Last logic previously.
-             {
-                 // Wait, original logic was: "if (idx > prepIndex) { ... prepIndex = idx }"
-                 // So yes, it finds the rightmost preposition.
-                 prepIdx = idx;
-                 prepStr = p;
-             }
+            var idx = text.IndexOf(p, StringComparison.OrdinalIgnoreCase);
+            if (idx > 0 && idx > prepIdx)
+            {
+                prepIdx = idx;
+                prepStr = p;
+            }
         }
 
         if (prepStr == null) return null;
@@ -200,9 +197,11 @@ public static class MenuTranslations
         return null;
     }
 
+    private static readonly Regex _extractionRegex = new Regex(@"\s*\((\d+(?:\.\d+)?%|[a-zA-Z]+)\)$");
+
     private static string ExtractSuffix(string text, out string suffixContent)
     {
-        var match = Regex.Match(text, @"\s*\((\d+(?:\.\d+)?%|[a-zA-Z]+)\)$");
+        var match = _extractionRegex.Match(text);
         if (match.Success)
         {
             suffixContent = match.Groups[1].Value;

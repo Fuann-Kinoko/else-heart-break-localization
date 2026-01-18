@@ -74,31 +74,31 @@ public class MenuPatches
         if (!IsActive) return;
         try
         {
-             var menu = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu").GetValue(instance) as ActionMenu;
-             if (menu?.items == null) return;
+            var menu = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu").GetValue(instance) as ActionMenu;
+            if (menu?.items == null) return;
 
-             Logger.LogInfo($"Translating {menu.items.Length} items...");
+            Logger.LogInfo($"Translating {menu.items.Length} items...");
 
-             foreach(var item in menu.items)
-             {
-                 if (item == null || string.IsNullOrEmpty(item.text)) continue;
+            foreach (var item in menu.items)
+            {
+                if (item == null || string.IsNullOrEmpty(item.text)) continue;
 
-                 var orig = item.text;
-                 if (MenuTranslations.TranslateMenuText(orig) is { } trans)
-                 {
-                     item.text = MenuTranslations.FormatBilingual(orig, trans);
-                     Logger.LogInfo($"[Menu] '{orig}' -> '{item.text}'");
-                 }
-                 else
-                 {
-                     var comp = MenuTranslations.TranslateComposedTooltip(orig);
-                     if (comp != orig)
-                     {
-                         item.text = comp;
-                         Logger.LogInfo($"[Menu Composed] '{orig}' -> '{item.text}'");
-                     }
-                 }
-             }
+                var orig = item.text;
+                if (MenuTranslations.TranslateMenuText(orig) is { } trans)
+                {
+                    item.text = MenuTranslations.FormatBilingual(orig, trans);
+                    Logger.LogInfo($"[Menu] '{orig}' -> '{item.text}'");
+                }
+                else
+                {
+                    var comp = MenuTranslations.TranslateComposedTooltip(orig);
+                    if (comp != orig)
+                    {
+                        item.text = comp;
+                        Logger.LogInfo($"[Menu Composed] '{orig}' -> '{item.text}'");
+                    }
+                }
+            }
         }
         catch (Exception ex) { Logger.LogError($"Error menus: {ex}"); }
     }
@@ -114,7 +114,7 @@ public class MenuPatches
         {
             float extra = 0f;
             float perChar = 7f * (lang.CharacterWidthMultiplier - 1.0f);
-            foreach(char c in pText) if (c > 255) extra += perChar;
+            foreach (char c in pText) if (c > 255) extra += perChar;
 
             if (extra > 0 && __result.GetComponent<RectTransform>() is { } rt)
                 rt.sizeDelta += new Vector2(extra, 0);

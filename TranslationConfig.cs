@@ -163,8 +163,6 @@ public static class TranslationConfig
     public static LanguageConfig GetLanguageById(int id) => Languages.FirstOrDefault(l => l.CustomLanguageId == id);
     public static bool IsCustomLanguageCode(string code) => GetLanguageByCode(code) != null;
 
-    // Output formatting specific helpers could exist here if needed, but keeping separate.
-
     // Compatibility properties
     public static string LanguageCode => ActiveLanguage?.Code ?? "chn";
     public static string DisplayName => ActiveLanguage?.DisplayName ?? "中文";

@@ -48,14 +48,14 @@ public class TranslationPatches
     {
         try
         {
-             var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
+            var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
                 AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
 
-             foreach(var lang in TranslationConfig.Languages)
-             {
-                 var cl = (Translator.Language)lang.CustomLanguageId;
-                 if (!dict.ContainsKey(cl)) dict.Add(cl, new Dictionary<string, Dictionary<string, string>>());
-             }
+            foreach (var lang in TranslationConfig.Languages)
+            {
+                var cl = (Translator.Language)lang.CustomLanguageId;
+                if (!dict.ContainsKey(cl)) dict.Add(cl, new Dictionary<string, Dictionary<string, string>>());
+            }
         }
         catch (Exception ex) { Logger.LogError($"LoadTranslationFiles err: {ex}"); }
     }
@@ -90,7 +90,7 @@ public class TranslationPatches
             if (langConfig == null) return true;
 
             var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)
-                 AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
+                AccessTools.Field(typeof(Translator), "_dict").GetValue(__instance);
 
             if (dict == null) { __result = pSentenceToTranslate; return false; }
 
