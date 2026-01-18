@@ -47,9 +47,9 @@
 "Reality blocked, can't jack out!" => "现实被阻断，无法脱离！"
 "Station:" => "站台:"
 
-// Tutorial hints from .dia files
-"Click on the ground to move around." => "点击地面来移动。"
-"You can interact with things by clicking at them." => "点击物体可以与其互动。"
-"Use the arrow keys or WASD to rotate the camera." => "使用方向键或WASD旋转视角。"
-"You can also hold the right mouse button and drag." => "你也可以按住鼠标右键拖动。"
-"You can run by double clicking!" => "双击可以跑步！"
+; Tutorial hints from .dia files
+"Click on the ground to move around." => "点击地面以进行移动"
+"You can interact with things by clicking at them." => "点击物体可以与其互动"
+"Use the arrow keys or WASD to rotate the camera." => "使用方向键或WASD旋转视角"
+"You can also hold the right mouse button and drag." => "你也可以按住鼠标右键拖动视角"
+"You can run by double clicking!" => "可以通过双击跑步！"

@@ -31,10 +31,10 @@
 "turn off" => "关闭"
 "kick" => "踢"
 
-// Verb patterns with prepositions - use [N] as placeholder for the object
-// E.g., "turn on water in sink" -> finds "turn on water in" => "打开[N]水龙头"
-// Then replaces [N] with TranslateTooltip("sink") = "水槽"
-// Result: "打开水槽水龙头"
+;; Verb patterns with prepositions - use [N] as placeholder for the object
+;; E.g., "turn on water in sink" -> finds "turn on water in" => "打开[N]水龙头"
+;; Then replaces [N] with TranslateTooltip("sink") = "水槽"
+;; Result: "打开水槽水龙头"
 "turn on water in" => "打开[N]水龙头"
 "turn off water in" => "关闭[N]水龙头"
 "press button on" => "按下[N]按钮"

@@ -73,7 +73,7 @@
 "Vilka regler följer fiskarna?" => "鱼遵循什么规则？"
 "Hmm..." => "嗯……"
 "De tar ett steg framåt varje tur, efter att din fisk flyttat" => "在你的鱼移动之后，它们每回合向前移动一步"
-"Om de slår i kanten så vänder de håll" => "around 如果它们碰到了边缘，它们就会转身"
+"Om de slår i kanten så vänder de håll" => "如果它们碰到了边缘，它们就会转身"
 "Vad har jag för funktioner tillgängliga?" => "我可以使用哪些函数？"
 "Jag tror att det är Right() och Left()" => "我觉得你有右转 Right() 和左转 Left()"
 "Och Forward()" => "以及前进 Forward()"
