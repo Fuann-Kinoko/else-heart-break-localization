@@ -9,7 +9,6 @@ namespace TranslationPlugin
 {
     /// <summary>
     /// Handles loading and lookup of menu/UI string translations.
-    /// Now supports multiple languages and .mtf file format.
     /// </summary>
     public static class MenuTranslations
     {
@@ -25,15 +24,11 @@ namespace TranslationPlugin
         // Cache for composed tooltips to avoid repeated string processing
         private static Dictionary<string, string> _composedCache = new Dictionary<string, string>();
 
-        // Regex from game's Translator.cs
+        // Regex from `Translator.cs`
         private static Regex _mtfRegex = new Regex("\"(.+)\" => \"(.+)\"");
 
-        /// <summary>
-        /// Initialize the menu translations based on active language.
-        /// </summary>
         public static void Init()
         {
-            // Always reload if language changed or first init
             LoadTranslations(TranslationConfig.ActiveLanguage);
         }
 
@@ -54,12 +49,12 @@ namespace TranslationPlugin
             if (language == null) return;
 
             // Path: ElseHeartbreak_Data/InitData/MenuTranslations/{Language}/
-            // Separate from game's Translations folder to avoid Translator scanning conflicts
             string initData = Path.Combine(Application.dataPath, "InitData");
-            string menuTranslationsDir = Path.Combine(initData, "MenuTranslations");
-            string menuPath = Path.Combine(menuTranslationsDir, language.TranslationFolder);
+            string prodMenuBase = Path.Combine(initData, "MenuTranslations");
+            string menuPath = Path.Combine(prodMenuBase, language.TranslationFolder);
+            string fileId = language.FileIdentifier; // e.g. "chn"
 
-            Logger.LogInfo($"Loading menu translations from: {menuPath}");
+            Logger.LogInfo($"Loading menu translations from: {menuPath} (ID: {fileId})");
 
             if (!Directory.Exists(menuPath))
             {
@@ -67,19 +62,17 @@ namespace TranslationPlugin
                 return;
             }
 
-            // Load specific files
-            LoadMtfFile(Path.Combine(menuPath, "tooltips.mtf"), _tooltips);
-            LoadMtfFile(Path.Combine(menuPath, "verbs.mtf"), _verbs);
-            LoadMtfFile(Path.Combine(menuPath, "notifications.mtf"), _notifications); // Contains general notifications
-            LoadMtfFile(Path.Combine(menuPath, "dialogues.mtf"), _dialogues);
-            LoadMtfFilesWithOverride(Path.Combine(menuPath, "menutext.mtf"), _menuText);
-
-            // Load extra files (mapped to appropriate dictionaries)
-            LoadMtfFile(Path.Combine(menuPath, "liquidtypes.mtf"), _tooltips); // Liquids are noun tooltips
-            LoadMtfFile(Path.Combine(menuPath, "drugtypes.mtf"), _tooltips);   // Drugs are noun tooltips
-            LoadMtfFile(Path.Combine(menuPath, "swedishdialogues.mtf"), _dialogues); // Dialogues
-            LoadMtfFile(Path.Combine(menuPath, "errors.mtf"), _notifications); // Errors are notifications
-            LoadMtfFile(Path.Combine(menuPath, "actiondescriptions.mtf"), _menuText); // Action descriptions act like menu text patterns
+            // Load specific files with variant support
+            LoadMtfVariant(menuPath, "tooltips", fileId, _tooltips);
+            LoadMtfVariant(menuPath, "verbs", fileId, _verbs);
+            LoadMtfVariant(menuPath, "notifications", fileId, _notifications);
+            LoadMtfVariant(menuPath, "dialogues", fileId, _dialogues);
+            LoadMtfVariant(menuPath, "menutext", fileId, _menuText);
+            LoadMtfVariant(menuPath, "liquidtypes", fileId, _tooltips);
+            LoadMtfVariant(menuPath, "drugtypes", fileId, _tooltips);
+            LoadMtfVariant(menuPath, "swedishdialogues", fileId, _dialogues);
+            LoadMtfVariant(menuPath, "errors", fileId, _notifications);
+            LoadMtfVariant(menuPath, "actiondescriptions", fileId, _menuText);
 
             Logger.LogInfo($"Menu translations loaded for {language.Code}: {_tooltips.Count} tooltips, {_verbs.Count} verbs, {_notifications.Count} notifications, {_dialogues.Count} dialogues, {_menuText.Count} menuText");
         }
@@ -113,36 +106,32 @@ namespace TranslationPlugin
         }
 
         /// <summary>
-        /// Load MTF file with optional override support.
-        /// If xxx_override.mtf exists, it will be loaded first (base file overwrites override for same keys,
-        /// but override keys not in base remain as full-sentence overrides).
+        /// Loads MTF files in priority order:
+        /// 1. {name}.mtf
+        /// 2. {name}.{id}.mtf (e.g. tooltips.chn.mtf)
+        /// 3. {name}_override.mtf
+        /// 4. {name}_override.{id}.mtf
+        /// Later files overwrite entries from earlier files.
         /// </summary>
-        private static void LoadMtfWithOverride(string basePath, Dictionary<string, string> targetDict)
+        private static void LoadMtfVariant(string dir, string baseName, string fileId, Dictionary<string, string> targetDict)
         {
-            string dir = Path.GetDirectoryName(basePath);
-            string baseName = Path.GetFileNameWithoutExtension(basePath);
-            string overridePath = Path.Combine(dir, baseName + "_override.mtf");
+            // 1. Base file
+            LoadMtfFile(Path.Combine(dir, $"{baseName}.mtf"), targetDict);
 
-            // Load override first - these are full-sentence overrides that take precedence
-            LoadMtfFile(overridePath, targetDict);
-            // Then load base file - individual translations that DON'T overwrite override entries
-            // Actually, we want override to take precedence, so load base first, then override
-            // Correction: Load base first, then override (override wins for duplicate keys)
-        }
+            // 2. Language-specific base file
+            if (!string.IsNullOrEmpty(fileId))
+            {
+                LoadMtfFile(Path.Combine(dir, $"{baseName}.{fileId}.mtf"), targetDict);
+            }
 
-        /// <summary>
-        /// Load MTF file with override support - override file takes precedence.
-        /// </summary>
-        private static void LoadMtfFilesWithOverride(string basePath, Dictionary<string, string> targetDict)
-        {
-            string dir = Path.GetDirectoryName(basePath);
-            string baseName = Path.GetFileNameWithoutExtension(basePath);
-            string overridePath = Path.Combine(dir, baseName + "_override.mtf");
+            // 3. Override file
+            LoadMtfFile(Path.Combine(dir, $"{baseName}_override.mtf"), targetDict);
 
-            // Load base first
-            LoadMtfFile(basePath, targetDict);
-            // Then load override (override wins for duplicate keys)
-            LoadMtfFile(overridePath, targetDict);
+            // 4. Language-specific override file
+            if (!string.IsNullOrEmpty(fileId))
+            {
+                LoadMtfFile(Path.Combine(dir, $"{baseName}_override.{fileId}.mtf"), targetDict);
+            }
         }
 
         /// <summary>
@@ -229,7 +218,7 @@ namespace TranslationPlugin
                 return FormatBilingual(composed, cachedTranslation);
             }
 
-            // 1. Check for specific overrides in [MenuText] first (e.g. "talk to person" -> "与人交谈")
+            // 1. Check for specific overrides in [MenuText] first (e.g. "pick up telephone" -> "拿起电话" instead of "拾取电话")
             var overrideTranslation = TranslateMenuText(composed);
             if (overrideTranslation != null)
             {
@@ -260,13 +249,11 @@ namespace TranslationPlugin
 
                     // Handle suffix in nouns, e.g., "booze (100%)" or "booze (empty)"
                     string suffixTranslated = "";
-                    // Match percentage like (100%) or (50.5%) OR text like (empty)
                     var suffixMatch = Regex.Match(remainder, @"\s*\((\d+(?:\.\d+)?%|[a-zA-Z]+)\)$");
                     string nounBase = remainder;
                     if (suffixMatch.Success)
                     {
                         string suffixContent = suffixMatch.Groups[1].Value;
-                        // Try to translate the suffix content (e.g., "empty" -> "空")
                         var suffixTrans = TranslateTooltip(suffixContent);
                         suffixTranslated = " (" + (suffixTrans ?? suffixContent) + ")";
                         nounBase = remainder.Substring(0, suffixMatch.Index).Trim();
@@ -297,17 +284,16 @@ namespace TranslationPlugin
                     }
                     else
                     {
-                        // Verb translated, Noun NOT translated
                         Logger.LogWarning($"[MenuTranslations] Missing translation for noun: '{nounBase}' in composed: '{composed}'");
 
                         string mixedTranslation = "";
                         if (translation.Contains("[N]"))
                         {
-                             mixedTranslation = translation.Replace("[N]", nounBase) + suffixTranslated;
+                            mixedTranslation = translation.Replace("[N]", nounBase) + suffixTranslated;
                         }
                         else
                         {
-                             mixedTranslation = translation + nounBase + suffixTranslated;
+                            mixedTranslation = translation + nounBase + suffixTranslated;
                         }
                         _composedCache[composed] = mixedTranslation;
                         return FormatBilingual(composed, mixedTranslation);
@@ -360,7 +346,6 @@ namespace TranslationPlugin
         /// </summary>
         private static string TryTranslateWithPreposition(string composed)
         {
-            // First, find which preposition is used (if any)
             string foundPrep = null;
             int prepIndex = -1;
 
@@ -369,7 +354,6 @@ namespace TranslationPlugin
                 int idx = composed.IndexOf(prep, StringComparison.OrdinalIgnoreCase);
                 if (idx > 0)
                 {
-                    // Found a preposition, prefer the last one to handle cases like "turn on water in sink"
                     if (prepIndex < 0 || idx > prepIndex)
                     {
                         foundPrep = prep;
@@ -389,13 +373,11 @@ namespace TranslationPlugin
             // E.g., "turn on water in" => "打开[N]水龙头"
             // With sink -> "水槽", result: "打开水槽水龙头"
 
-            // First, try the full beforePrep + prep pattern (without trailing space issues)
             string verbWithPrep = beforePrep + foundPrep.TrimEnd();
             var patternTranslation = TranslateVerb(verbWithPrep);
 
             if (patternTranslation == null)
             {
-                // Try just beforePrep
                 patternTranslation = TranslateVerb(beforePrep);
             }
 

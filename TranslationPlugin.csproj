@@ -13,10 +13,11 @@
       https://nuget.samboy.dev/v3/index.json
     </RestoreAdditionalProjectSources>
     <RootNamespace>TranslationPlugin</RootNamespace>
+    <ManagedPath>..\ElseHeartbreak_Data\Managed</ManagedPath>
+    <BepInExPluginsPath>..\BepInEx\plugins</BepInExPluginsPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 排除 reversed 文件夹及其子目录下的所有文件 -->
     <Compile Remove="reversed\**\*" />
     <Content Remove="reversed\**\*" />
     <EmbeddedResource Remove="reversed\**\*" />
@@ -40,26 +41,26 @@
 
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(ManagedPath)\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="GameWorld2">
-      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\GameWorld2.dll</HintPath>
+      <HintPath>$(ManagedPath)\GameWorld2.dll</HintPath>
     </Reference>
     <Reference Include="GameTypes">
-      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\GameTypes.dll</HintPath>
+      <HintPath>$(ManagedPath)\GameTypes.dll</HintPath>
     </Reference>
     <Reference Include="TingTing">
-      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\TingTing.dll</HintPath>
+      <HintPath>$(ManagedPath)\TingTing.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>Z:\SteamLibrary\steamapps\common\ElseHeartbreak\ElseHeartbreak_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
 
   <Target Name="CopyPlugin" AfterTargets="Build">
     <Copy
       SourceFiles="$(TargetPath)"
-      DestinationFolder="Z:\SteamLibrary\steamapps\common\ElseHeartbreak\BepInEx\plugins\"
-      Condition="Exists('Z:\SteamLibrary\steamapps\common\ElseHeartbreak\BepInEx\plugins\')" />
+      DestinationFolder="$(BepInExPluginsPath)\"
+      Condition="Exists('$(BepInExPluginsPath)\')" />
   </Target>
 </Project>

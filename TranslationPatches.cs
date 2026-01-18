@@ -17,17 +17,14 @@ namespace TranslationPlugin
         [HarmonyPrefix]
         public static bool FoundFile_Prefix(Translator __instance, string pFilepath)
         {
-            // Check if this file belongs to any of our custom languages
+            // Check if this file belongs to any of custom languages
             LanguageConfig matchedLang = null;
 
             foreach (var lang in TranslationConfig.Languages)
             {
                 if (pFilepath.EndsWith(".mtf") && pFilepath.Contains("." + lang.FileIdentifier))
                 {
-                    // Validate folder path
                     string unifiedPath = pFilepath.Replace('\\', '/');
-
-                    // Check if the path is in the correct translation folder
                     if (!string.IsNullOrEmpty(lang.TranslationFolder))
                     {
                         if (unifiedPath.Contains("/Translations/" + lang.TranslationFolder + "/"))
@@ -37,7 +34,6 @@ namespace TranslationPlugin
                         }
                         else
                         {
-                            // File matches identifier but wrong folder - log debug info
                             Logger.LogDebug($"File {pFilepath} matches identifier '{lang.FileIdentifier}' but not in folder '{lang.TranslationFolder}'");
                         }
                     }
@@ -90,7 +86,6 @@ namespace TranslationPlugin
                 FieldInfo dictField = AccessTools.Field(typeof(Translator), "_dict");
                 var dict = (Dictionary<Translator.Language, Dictionary<string, Dictionary<string, string>>>)dictField.GetValue(__instance);
 
-                // Initialize dictionaries for all custom languages
                 foreach (var lang in TranslationConfig.Languages)
                 {
                     var customLang = (Translator.Language)lang.CustomLanguageId;
@@ -113,15 +108,11 @@ namespace TranslationPlugin
         public static bool RefreshTranslationLanguage_Prefix(World __instance)
         {
             string currentLangCode = __instance.settings.translationLanguage;
-
-            // Check if the current language code matches any custom language
             var langConfig = TranslationConfig.GetLanguageByCode(currentLangCode);
-
             if (langConfig != null)
             {
                 Logger.LogInfo($"RefreshTranslationLanguage: Setting language to custom: {langConfig.DisplayName} ({langConfig.Code})");
 
-                // Set this as the active language
                 if (TranslationConfig.SetActiveLanguage(currentLangCode))
                 {
                     // Reload menu translations for the new language
@@ -154,9 +145,7 @@ namespace TranslationPlugin
                 var currentLang = (Translator.Language)languageField.GetValue(__instance);
                 int currentLangId = (int)currentLang;
 
-                // Check if the current language is one of our custom languages
                 var langConfig = TranslationConfig.GetLanguageById(currentLangId);
-
                 if (langConfig != null)
                 {
                     FieldInfo dictField = AccessTools.Field(typeof(Translator), "_dict");

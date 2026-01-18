@@ -6,9 +6,6 @@ using TingTing;
 
 namespace TranslationPlugin
 {
-    /// <summary>
-    /// Harmony patches for translating menu and UI strings.
-    /// </summary>
     public class MenuPatches
     {
         private static ManualLogSource Logger => Plugin.Logger;
@@ -24,7 +21,7 @@ namespace TranslationPlugin
 
             if (!IsCustomLanguageActive())
             {
-                Logger.LogInfo("[MenuPatches] Custom language NOT active, skipping");
+                Logger.LogWarning("[MenuPatches] Custom language NOT active, skipping");
                 return;
             }
 
@@ -57,7 +54,7 @@ namespace TranslationPlugin
 
             if (!IsCustomLanguageActive())
             {
-                Logger.LogInfo("[MenuPatches] Custom language NOT active, skipping");
+                Logger.LogWarning("[MenuPatches] Custom language NOT active, skipping");
                 return;
             }
 
@@ -174,16 +171,11 @@ namespace TranslationPlugin
                 }
                 else
                 {
-                    // If no direct menu text match, try composed tooltip logic for things like "open door"
-                    // But "open door" is usually constructed from verb + tooltip, so it might be tricky to catch here
-                    // if we don't have the components.
-                    // However, we do have TranslateComposedTooltip in MenuTranslations which parses "verb description".
-                    // Let's try that as a fallback if it looks like a composed string.
                     string composedTranslation = MenuTranslations.TranslateComposedTooltip(originalText);
                     if (composedTranslation != originalText) // different means it was translated
                     {
                         item.text = composedTranslation;
-                         Logger.LogInfo($"[MenuPatches] Composed item translated: '{originalText}' -> '{item.text}'");
+                        Logger.LogInfo($"[MenuPatches] Composed item translated: '{originalText}' -> '{item.text}'");
                     }
                 }
             }
@@ -200,8 +192,7 @@ namespace TranslationPlugin
 
             try
             {
-                // Access private field _actionMenu using Reflection/AccessTools
-                // PlayerRoamingState defines: private ActionMenu _actionMenu;
+                // private field, access using reflection
                 var field = AccessTools.Field(typeof(PlayerRoamingState), "_actionMenu");
                 ActionMenu actionMenu = (ActionMenu)field.GetValue(__instance);
 
@@ -244,9 +235,8 @@ namespace TranslationPlugin
         }
 
         /// <summary>
-        /// Patch BubbleCanvasController.CreateBubble to adjust bubble width for non-English languages.
-        /// The original code uses: float x = pText.Length * 7f; which assumes 7px per character.
-        /// When NOT in bilingual mode, we multiply by the language's CharacterWidthMultiplier.
+        /// Patch BubbleCanvasController.CreateBubble to adjust bubble width for CJK languages.
+        /// original: float x = pText.Length * 7f
         /// </summary>
         [HarmonyPatch(typeof(BubbleCanvasController), "CreateBubble")]
         [HarmonyPostfix]
@@ -262,17 +252,11 @@ namespace TranslationPlugin
 
             try
             {
-                // Original calculation in game: pText.Length * 7f
-                // We want to add extra width ONLY for wide characters (e.g. CJK)
-                // Standard ASCII chars (0-127) are fine with 7f.
-                // We'll treat anything > 255 as a "wide" character needing the multiplier.
-
                 float additionalWidth = 0f;
                 float extraPerChar = 7f * (lang.CharacterWidthMultiplier - 1.0f);
-
                 foreach (char c in pText)
                 {
-                    if (c > 255)
+                    if (c > 255) // non-ASCII characters
                     {
                         additionalWidth += extraPerChar;
                     }
