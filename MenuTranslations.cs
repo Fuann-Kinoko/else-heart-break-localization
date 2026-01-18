@@ -94,7 +94,7 @@ public static partial class MenuTranslations
         !string.IsNullOrEmpty(key) && dict.TryGetValue(key, out var val) ? val : null;
 
     public static string FormatBilingual(string orig, string trans) =>
-        string.IsNullOrEmpty(trans) ? orig : (!TranslationConfig.BilingualModeEnabled ? trans : $"{orig} [{trans}]");
+        string.IsNullOrEmpty(trans) ? orig : (!TranslationConfig.BilingualModeEnabled ? trans : $"{orig} | {trans}");
 
     public static string TranslateComposedTooltip(string composed)
     {

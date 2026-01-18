@@ -24,7 +24,11 @@ public class UIPatches
         var saved = PlayerPrefs.GetString(PrefKey);
         Logger.LogInfo($"Restoring language: {saved}");
 
-        if (TranslationConfig.SetActiveLanguage(saved)) menu.SetLanguage(saved);
+        TranslationConfig.SetActiveLanguage(saved);
+        MenuTranslations.Reload();
+
+        // Always restore the language to the menu, even if it's "eng"
+        menu.SetLanguage(saved);
     }
 
     private static void SetupLanguageButtons(MainMenu menu)

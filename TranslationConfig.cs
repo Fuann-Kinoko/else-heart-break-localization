@@ -152,11 +152,16 @@ public static class TranslationConfig
     public static bool SetActiveLanguage(string code)
     {
         var lang = GetLanguageByCode(code);
-        if (lang == null) return false;
-
         ActiveLanguage = lang;
-        Plugin.Logger.LogInfo($"Active language set to: {lang.DisplayName}");
-        return true;
+
+        if (lang != null)
+        {
+            Plugin.Logger.LogInfo($"Active language set to: {lang.DisplayName}");
+            return true;
+        }
+
+        Plugin.Logger.LogInfo($"Active language cleared (native/unknown: {code})");
+        return false;
     }
 
     public static LanguageConfig GetLanguageByCode(string code) => Languages.FirstOrDefault(l => l.Code.Equals(code, StringComparison.OrdinalIgnoreCase));

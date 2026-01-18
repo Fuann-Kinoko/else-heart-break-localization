@@ -65,7 +65,13 @@ public class TranslationPatches
     {
         var code = __instance.settings.translationLanguage;
         var lang = TranslationConfig.GetLanguageByCode(code);
-        if (lang == null) return true;
+        if (lang == null)
+        {
+            // Sync config to ensure ActiveLanguage is null (cleared)
+            TranslationConfig.SetActiveLanguage(code);
+            MenuTranslations.Reload();
+            return true;
+        }
 
         Logger.LogInfo($"Setting language: {lang.DisplayName} ({lang.Code})");
         if (TranslationConfig.SetActiveLanguage(code)) MenuTranslations.Reload();
