@@ -86,8 +86,10 @@ namespace TranslationPlugin
                 buttonSpacing = englishBtn.localPosition.y - swedishBtn.localPosition.y;
             }
 
-            // Get the starting position (above the top-most existing button)
-            Vector3 basePosition = template.localPosition;
+            // We want to add custom languages BELOW the Swedish button (or English if Swedish missing)
+            // Current order: English (Top) -> Swedish (Bottom) -> Custom1 -> Custom2
+            Transform lastButton = swedishBtn ?? englishBtn;
+            Vector3 basePosition = lastButton.localPosition;
 
             // Create a button for each custom language
             for (int i = 0; i < TranslationConfig.Languages.Count; i++)
@@ -109,9 +111,9 @@ namespace TranslationPlugin
                 newButtonObj.transform.localScale = Vector3.one;
                 newButtonObj.name = buttonName;
 
-                // Position the button above existing buttons
+                // Position the button below the last button
                 Vector3 newPos = basePosition;
-                newPos.y += buttonSpacing * (i + 1);
+                newPos.y -= buttonSpacing * (i + 1);
                 newButtonObj.transform.localPosition = newPos;
 
                 // Update the button text
@@ -168,6 +170,18 @@ namespace TranslationPlugin
                 }
 
                 Logger.LogInfo($"Created language button: {langConfig.DisplayName} ({langConfig.Code})");
+            }
+
+            // Move the "Can also be changed while playing" text down
+            // Name in hierarchy is "This can be changed later"
+            var hintText = languagesContainer.Find("This can be changed later");
+            if (hintText != null)
+            {
+                Vector3 newPos = hintText.localPosition;
+                // Move it down by the total height added (count * spacing)
+                newPos.y -= buttonSpacing * TranslationConfig.Languages.Count;
+                hintText.localPosition = newPos;
+                Logger.LogInfo($"Moved hint text down to: {newPos.y}");
             }
         }
     }
